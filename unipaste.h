@@ -134,5 +134,6 @@ void table_render(struct table *t, struct strbuf *out, const struct config *cfg)
 /* Core processing */
 int unipaste_process_stream(FILE *in, FILE *out, const struct config *cfg);
 int unipaste_process_string(const char *input, size_t len, FILE *out, const struct config *cfg);
+int unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, const struct config *cfg);
 
 #endif /* UNIPASTE_H */

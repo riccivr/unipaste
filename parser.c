@@ -594,9 +594,9 @@ find_fragment_len(const char *src, size_t total_len)
 	return total_len;
 }
 
-/* Main parsing loop for HTML input buffer */
+/* Main parsing loop for HTML input buffer into strbuf */
 int
-unipaste_process_string(const char *input, size_t len, FILE *out, const struct config *cfg)
+unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, const struct config *cfg)
 {
 	struct parser_state st;
 	const char *p, *end;
@@ -607,9 +607,10 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 	char char_buf[8];
 	int i;
 	char *sanitized = NULL;
+	size_t j;
 
 	if (!input || !out || !cfg)
-		return 0;
+		return 1;
 
 	/* Plugin hook: sanitize input before formatting if compiled in */
 	sanitized = sanitize_html(input, len);
@@ -620,7 +621,6 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 
 	memset(&st, 0, sizeof(st));
 	st.cfg = cfg;
-	st.out = out;
 	st.consecutive_newlines = 2; /* Treat start as beginning of fresh paragraph */
 	st.at_line_start = 1;
 
@@ -761,13 +761,13 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 
 	/* Output result with CRLF conversion if requested */
 	if (cfg->crlf) {
-		for (size_t j = 0; j < st.outbuf.len; j++) {
+		for (j = 0; j < st.outbuf.len; j++) {
 			if (st.outbuf.data[j] == '\n' && (j == 0 || st.outbuf.data[j - 1] != '\r'))
-				fputc('\r', out);
-			fputc(st.outbuf.data[j], out);
+				strbuf_putc(out, '\r');
+			strbuf_putc(out, st.outbuf.data[j]);
 		}
 	} else {
-		fputs(st.outbuf.data, out);
+		strbuf_append(out, st.outbuf.data, st.outbuf.len);
 	}
 
 	/* Clean up */
@@ -780,6 +780,25 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 	free(sanitized);
 
 	return 0;
+}
+
+/* Process input string and write to stream */
+int
+unipaste_process_string(const char *input, size_t len, FILE *out, const struct config *cfg)
+{
+	struct strbuf sb;
+	int ret;
+
+	if (!input || !out || !cfg)
+		return 1;
+
+	strbuf_init(&sb, len ? len * 2 : 4096);
+	ret = unipaste_process_to_strbuf(input, len, &sb, cfg);
+	if (ret == 0 && sb.len > 0) {
+		fwrite(sb.data, 1, sb.len, out);
+	}
+	strbuf_free(&sb);
+	return ret;
 }
 
 /* Process input from stream */
