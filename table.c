@@ -24,6 +24,25 @@ xstrdup(const char *s)
 	return res;
 }
 
+/* Calculate display column width of UTF-8 string */
+static size_t
+utf8_width(const char *s)
+{
+	size_t width = 0;
+
+	if (!s)
+		return 0;
+
+	while (*s) {
+		/* Only count leading UTF-8 bytes and ASCII bytes */
+		if ((*s & 0xC0) != 0x80) {
+			width++;
+		}
+		s++;
+	}
+	return width;
+}
+
 /* Trim leading and trailing whitespace from string */
 static void
 trim_whitespace(char *s)
@@ -66,11 +85,12 @@ table_free(struct table *t)
 	if (!t)
 		return;
 
-	for (r = 0; r < t->num_rows; r++) {
-		for (c = 0; c < t->num_cols; c++) {
+	for (r = 0; r < t->num_rows && r < MAX_TABLE_ROWS; r++) {
+		for (c = 0; c < t->num_cols && c < MAX_TABLE_COLS; c++) {
 			if (t->cells[r][c]) {
 				free(t->cells[r][c]->text);
 				free(t->cells[r][c]);
+				t->cells[r][c] = NULL;
 			}
 		}
 	}
@@ -120,17 +140,17 @@ static void
 table_calculate_widths(struct table *t)
 {
 	int r, c;
-	size_t len;
+	size_t w;
 
-	for (c = 0; c < t->num_cols; c++)
+	for (c = 0; c < t->num_cols && c < MAX_TABLE_COLS; c++)
 		t->col_widths[c] = 3; /* minimum width */
 
-	for (r = 0; r < t->num_rows; r++) {
-		for (c = 0; c < t->num_cols; c++) {
+	for (r = 0; r < t->num_rows && r < MAX_TABLE_ROWS; r++) {
+		for (c = 0; c < t->num_cols && c < MAX_TABLE_COLS; c++) {
 			if (t->cells[r][c] && t->cells[r][c]->text) {
-				len = strlen(t->cells[r][c]->text);
-				if ((int)len > t->col_widths[c])
-					t->col_widths[c] = (int)len;
+				w = utf8_width(t->cells[r][c]->text);
+				if ((int)w > t->col_widths[c])
+					t->col_widths[c] = (int)w;
 			}
 		}
 	}
@@ -157,6 +177,7 @@ render_grid(const struct table *t, struct strbuf *out, int unicode)
 {
 	int r, c, i, pad;
 	const char *txt;
+	size_t w;
 
 	if (unicode) {
 		/* Unicode table box-drawing */
@@ -171,9 +192,10 @@ render_grid(const struct table *t, struct strbuf *out, int unicode)
 			strbuf_puts(out, "│");
 			for (c = 0; c < t->num_cols; c++) {
 				txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+				w = utf8_width(txt);
 				strbuf_puts(out, " ");
 				strbuf_puts(out, txt);
-				pad = t->col_widths[c] - (int)strlen(txt) + 1;
+				pad = t->col_widths[c] - (int)w + 1;
 				for (i = 0; i < pad; i++)
 					strbuf_puts(out, " ");
 				strbuf_puts(out, "│");
@@ -204,9 +226,10 @@ render_grid(const struct table *t, struct strbuf *out, int unicode)
 			strbuf_puts(out, "|");
 			for (c = 0; c < t->num_cols; c++) {
 				txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+				w = utf8_width(txt);
 				strbuf_puts(out, " ");
 				strbuf_puts(out, txt);
-				pad = t->col_widths[c] - (int)strlen(txt) + 1;
+				pad = t->col_widths[c] - (int)w + 1;
 				for (i = 0; i < pad; i++)
 					strbuf_putc(out, ' ');
 				strbuf_puts(out, "|");
@@ -227,14 +250,16 @@ render_markdown(const struct table *t, struct strbuf *out)
 {
 	int r, c, i, pad;
 	const char *txt;
+	size_t w;
 
 	for (r = 0; r < t->num_rows; r++) {
 		strbuf_puts(out, "|");
 		for (c = 0; c < t->num_cols; c++) {
 			txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+			w = utf8_width(txt);
 			strbuf_puts(out, " ");
 			strbuf_puts(out, txt);
-			pad = t->col_widths[c] - (int)strlen(txt) + 1;
+			pad = t->col_widths[c] - (int)w + 1;
 			for (i = 0; i < pad; i++)
 				strbuf_putc(out, ' ');
 			strbuf_puts(out, "|");
@@ -279,13 +304,15 @@ render_simple(const struct table *t, struct strbuf *out)
 {
 	int r, c, i, pad;
 	const char *txt;
+	size_t w;
 
 	for (r = 0; r < t->num_rows; r++) {
 		for (c = 0; c < t->num_cols; c++) {
 			txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+			w = utf8_width(txt);
 			strbuf_puts(out, txt);
 			if (c < t->num_cols - 1) {
-				pad = t->col_widths[c] - (int)strlen(txt) + 2;
+				pad = t->col_widths[c] - (int)w + 2;
 				for (i = 0; i < pad; i++)
 					strbuf_putc(out, ' ');
 			}
