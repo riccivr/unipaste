@@ -608,6 +608,7 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 	char char_buf[8];
 	int i;
 	char *sanitized = NULL;
+	char *alloc_input = NULL;
 	size_t j;
 
 	if (!input || !out || !cfg)
@@ -616,8 +617,16 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 	/* Plugin hook: sanitize input before formatting if compiled in */
 	sanitized = sanitize_html(input, len);
 	if (sanitized) {
-		input = sanitized;
-		len = strlen(sanitized);
+		alloc_input = sanitized;
+		input = alloc_input;
+		len = strlen(alloc_input);
+	} else {
+		alloc_input = malloc(len + 1);
+		if (!alloc_input)
+			return 1;
+		memcpy(alloc_input, input, len);
+		alloc_input[len] = '\0';
+		input = alloc_input;
 	}
 
 	memset(&st, 0, sizeof(st));
@@ -778,7 +787,7 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 	strbuf_free(&st.textbuf);
 	strbuf_free(&st.link_text);
 	strbuf_free(&st.heading_text);
-	free(sanitized);
+	free(alloc_input);
 
 	return 0;
 }

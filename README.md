@@ -96,19 +96,38 @@ Custom backends (e.g., binding to external libraries like `libxml2` or Rust-base
    make PLUGIN_SRC=plugin_custom.c
    ```
 
-Running tests
--------------
-To execute the automated test suite across all 37 test cases:
+Testing Suite & Verification
+----------------------------
+`unipaste` maintains a multi-tiered test matrix inspired by `cmark`, `lowdown`, and `sbase`:
+
+### 1. Unit & Golden Fixture Tests
+Runs all 37 core unit tests plus real-world golden snapshot fixtures (Slack, Teams, Google Docs, GitHub):
 
     make test
 
-To run tests with the built-in sanitizer enabled:
+To run with the built-in HTML sanitizer enabled:
 
     make SANITIZE=builtin test
 
-To run AddressSanitizer and UndefinedBehaviorSanitizer tests:
+### 2. Pathological & Stress Tests
+Tests 2,000-level nesting bombs, column overflows (150+ cols), corrupted UTF-8 byte streams, and null byte injections:
+
+    make stress
+
+### 3. Memory Sanitizers (ASan + UBSan)
+Builds and executes all unit, fixture, and stress tests under AddressSanitizer and UndefinedBehaviorSanitizer:
 
     make sanitize
+
+### 4. Valgrind Memory Leak Analysis
+Runs dynamic memory analysis to verify 0 memory leaks and 0 uninitialized reads:
+
+    make valgrind
+
+### 5. Coverage-Guided LibFuzzer
+Fuzzes the formatting engine with LLVM LibFuzzer over mutated seeds:
+
+    make fuzz
 
 Usage
 -----

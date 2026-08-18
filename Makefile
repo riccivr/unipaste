@@ -27,7 +27,7 @@ clean:
 
 dist: clean
 	mkdir -p unipaste-$(VERSION)/tests
-	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests unipaste-$(VERSION)
+	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests fuzz unipaste-$(VERSION)
 	tar -cf unipaste-$(VERSION).tar unipaste-$(VERSION)
 	gzip unipaste-$(VERSION).tar
 	rm -rf unipaste-$(VERSION)
@@ -60,4 +60,16 @@ sanitize: clean
 	sh tests/test_fixtures.sh
 	sh tests/test_stress.sh
 
-.PHONY: all clean dist install uninstall test fixtures stress sanitize
+valgrind: unipaste
+	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./unipaste < tests/fixtures/slack_message.html > /dev/null
+	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./unipaste -m markdown < tests/fixtures/github_code.html > /dev/null
+	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./unipaste -u < tests/fixtures/teams_checklist.html > /dev/null
+	valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./unipaste -l footnote < tests/fixtures/docs_nested_outline.html > /dev/null
+	@echo "[PASS] Valgrind memory leak checks clean (0 leaks, 0 errors)"
+
+fuzz: clean
+	clang -std=c99 -pedantic -Wall -Wextra $(CPPFLAGS) -I. -fsanitize=fuzzer,address,undefined fuzz/fuzz_unipaste.c parser.c table.c entity.c strbuf.c $(PLUGIN_SRC) -o fuzz_unipaste
+	./fuzz_unipaste tests/fixtures -max_total_time=5 -runs=20000
+	rm -f fuzz_unipaste
+
+.PHONY: all clean dist install uninstall test fixtures stress sanitize valgrind fuzz
