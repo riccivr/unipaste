@@ -418,6 +418,11 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 			strbuf_reset(&st->link_text);
 		}
 	} else if (tag_is(name, "table")) {
+		if (st->current_table) {
+			table_render(st->current_table, &st->outbuf, st->cfg);
+			table_free(st->current_table);
+			st->current_table = NULL;
+		}
 		emit_newlines(st, 2);
 		st->current_table = table_create();
 	} else if (tag_is(name, "tr")) {
@@ -692,10 +697,19 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 			char fn_header[32];
 			snprintf(fn_header, sizeof(fn_header), "[%d] ", i + 1);
 			strbuf_puts(&st.outbuf, fn_header);
-			strbuf_puts(&st.outbuf, st.footnotes[i]);
+			if (st.footnotes[i])
+				strbuf_puts(&st.outbuf, st.footnotes[i]);
 			strbuf_putc(&st.outbuf, '\n');
 			free(st.footnotes[i]);
+			st.footnotes[i] = NULL;
 		}
+	}
+
+	/* Flush any unclosed table */
+	if (st.current_table) {
+		table_render(st.current_table, &st.outbuf, st.cfg);
+		table_free(st.current_table);
+		st.current_table = NULL;
 	}
 
 	/* Ensure trailing newline */
