@@ -3,7 +3,15 @@
 
 include config.mk
 
-SRC = unipaste.c parser.c table.c entity.c strbuf.c
+# Plugin support (default: none, zero dependencies)
+# Build with sanitizer: make SANITIZE=builtin
+PLUGIN_SRC = plugin_none.c
+ifeq ($(SANITIZE),builtin)
+PLUGIN_SRC = plugin_builtin.c
+CFLAGS += -DSANITIZE_BUILTIN
+endif
+
+SRC = unipaste.c parser.c table.c entity.c strbuf.c $(PLUGIN_SRC)
 OBJ = $(SRC:.c=.o)
 
 all: unipaste
@@ -15,11 +23,11 @@ unipaste: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)
 
 clean:
-	rm -f unipaste $(OBJ) unipaste-$(VERSION).tar.gz
+	rm -f unipaste $(OBJ) plugin_none.o plugin_builtin.o unipaste-$(VERSION).tar.gz
 
 dist: clean
 	mkdir -p unipaste-$(VERSION)/tests
-	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h $(SRC) tests unipaste-$(VERSION)
+	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests unipaste-$(VERSION)
 	tar -cf unipaste-$(VERSION).tar unipaste-$(VERSION)
 	gzip unipaste-$(VERSION).tar
 	rm -rf unipaste-$(VERSION)
