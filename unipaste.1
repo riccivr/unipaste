@@ -1,0 +1,110 @@
+.TH UNIPASTE 1 unipaste\-VERSION
+.SH NAME
+unipaste \- suckless universal rich text converter and stream formatter
+.SH SYNOPSIS
+.B unipaste
+.RB [ \-urv ]
+.RB [ \-m
+.IR mode ]
+.RB [ \-t
+.IR table ]
+.RB [ \-l
+.IR link ]
+.RI [ file\ ... ]
+.SH DESCRIPTION
+.B unipaste
+is a lightweight, zero-dependency POSIX stream utility that converts rich text,
+HTML, and clipboard payloads into beautifully formatted plain text, Markdown,
+or terminal output.
+.P
+It is engineered to solve clipboard fidelity loss across applications (e.g. copying
+from Slack, Teams, or web browsers and pasting into Notepad, terminals, or code editors).
+.SH OPTIONS
+.TP
+.BI \-m " mode"
+Sets the output formatting mode:
+.RS
+.TP
+.B plain
+Formatted ASCII plain text tailored for Notepad and standard text editors (default).
+.TP
+.B markdown
+Clean GitHub-Flavored Markdown (GFM).
+.TP
+.B terminal
+Formatted output using ANSI escape sequences (bold headings, underlined links).
+.RE
+.TP
+.BI \-t " table"
+Sets the table formatting style:
+.RS
+.TP
+.B grid
+ASCII box borders (+---+---+).
+.TP
+.B markdown
+Markdown pipe table (| a | b |).
+.TP
+.B tsv
+Tab-separated values.
+.TP
+.B simple
+Space-aligned columns.
+.RE
+.TP
+.BI \-l " link"
+Sets the hyperlink formatting style:
+.RS
+.TP
+.B bracket
+Render as "text (url)" (default for plain mode).
+.TP
+.B inline
+Render as "[text](url)" (default for markdown mode).
+.TP
+.B text
+Suppress URLs and keep text only.
+.TP
+.B footnote
+Place reference numbers "[1]" and emit footnotes at the end.
+.RE
+.TP
+.B \-u
+Use UTF-8 Unicode box-drawing characters for tables.
+.TP
+.B \-r
+Emit Windows CRLF (\\r\\n) line endings.
+.TP
+.B \-v
+Print version information and exit.
+.TP
+.B \-h
+Print help message and exit.
+.SH EXAMPLES
+Convert HTML from clipboard (via xclip) to clean plain text:
+.PP
+.nf
+.RS
+xclip -selection clipboard -t text/html -o | unipaste
+.RE
+.fi
+.PP
+Convert a rich HTML file to clean GitHub-Flavored Markdown:
+.PP
+.nf
+.RS
+unipaste -m markdown document.html > document.md
+.RE
+.fi
+.PP
+Convert HTML with Unicode tables and footnotes:
+.PP
+.nf
+.RS
+unipaste -u -l footnote report.html
+.RE
+.fi
+.SH AUTHORS
+Written by Ricardo.
+.SH LICENSE
+MIT License.
