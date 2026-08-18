@@ -26,11 +26,24 @@ clean:
 	rm -f unipaste $(OBJ) plugin_none.o plugin_builtin.o unipaste-$(VERSION).tar.gz
 
 dist: clean
-	mkdir -p unipaste-$(VERSION)/tests
-	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests fuzz unipaste-$(VERSION)
+	mkdir -p unipaste-$(VERSION)/tests unipaste-$(VERSION)/packaging
+	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests fuzz packaging unipaste-$(VERSION)
 	tar -cf unipaste-$(VERSION).tar unipaste-$(VERSION)
 	gzip unipaste-$(VERSION).tar
 	rm -rf unipaste-$(VERSION)
+
+deb: all
+	@T=$$(mktemp -d); \
+	mkdir -p $$T/DEBIAN $$T/usr/bin $$T/usr/share/man/man1; \
+	cp unipaste $$T/usr/bin/; \
+	sed "s/VERSION/$(VERSION)/g" < unipaste.1 > $$T/usr/share/man/man1/unipaste.1; \
+	chmod 755 $$T/usr/bin/unipaste; \
+	chmod 644 $$T/usr/share/man/man1/unipaste.1; \
+	printf "Package: unipaste\nVersion: $(VERSION)\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: riccivr <riccivr@users.noreply.github.com>\nDescription: Suckless universal rich text and clipboard stream converter\n" > $$T/DEBIAN/control; \
+	chmod 755 $$T/DEBIAN; \
+	dpkg-deb --root-owner-group --build $$T unipaste_$(VERSION)_amd64.deb; \
+	rm -rf $$T; \
+	echo "Built unipaste_$(VERSION)_amd64.deb"
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin

@@ -1,0 +1,26 @@
+# Maintainer: riccivr <riccivr@users.noreply.github.com>
+pkgname=unipaste
+pkgver=1.1.0
+pkgrel=1
+pkgdesc="Suckless zero-dependency POSIX universal rich text and clipboard converter"
+arch=('x86_64' 'aarch64' 'armv7h' 'i686')
+url="https://github.com/riccivr/unipaste"
+license=('MIT')
+source=("https://github.com/riccivr/unipaste/releases/download/v${pkgver}/unipaste-${pkgver}.tar.gz")
+sha256sums=('75b1a23b12bf05af8287c1077d0479a2465318cb1c75ab35656c825f48d50efb')
+
+build() {
+	cd "${pkgname}-${pkgver}"
+	make
+}
+
+check() {
+	cd "${pkgname}-${pkgver}"
+	make test
+}
+
+package() {
+	cd "${pkgname}-${pkgver}"
+	make DESTDIR="${pkgdir}" PREFIX="/usr" install
+	install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

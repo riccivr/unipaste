@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>unipaste</id>
+    <version>1.1.0</version>
+    <title>unipaste</title>
+    <authors>riccivr</authors>
+    <projectUrl>https://github.com/riccivr/unipaste</projectUrl>
+    <licenseUrl>https://github.com/riccivr/unipaste/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>clipboard rich-text converter suckless markdown posix</tags>
+    <summary>Suckless universal rich text and clipboard stream converter</summary>
+    <description>Lightweight, zero-dependency POSIX CLI utility that parses rich text and HTML fragments into clean plain text, Markdown, or terminal output.</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
