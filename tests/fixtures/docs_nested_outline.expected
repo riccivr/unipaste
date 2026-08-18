@@ -1,0 +1,11 @@
+System Architecture
+===================
+
+Overview of the core subsystems:
+
+1. Storage Engine
+  * In-memory buffer pool
+  * WAL append-only log
+2. Network Dispatcher
+  * Epoll event loop
+  * TLS termination

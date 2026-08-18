@@ -1,0 +1,13 @@
+To initialize the hash map:
+
+```c
+#include <stdio.h>
+
+struct map *
+map_create(size_t cap)
+{
+	return calloc(1, sizeof(struct map));
+}
+```
+
+> Note: Ensure *cap* is a power of 2.

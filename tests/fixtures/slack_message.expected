@@ -1,0 +1,10 @@
+Here is the quarterly deployment summary:
+
++--------------+---------+-----------+
+| Service      | Version | Status    |
++--------------+---------+-----------+
+| Auth Gateway | v2.4.1  | Healthy   |
+| Billing Core | v1.9.0  | Migrating |
++--------------+---------+-----------+
+
+Review the logs at Grafana Dashboard (https://grafana.internal/d/deploy).

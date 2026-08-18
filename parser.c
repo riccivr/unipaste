@@ -143,6 +143,7 @@ emit_indent(struct parser_state *st)
 	}
 
 	st->at_line_start = 0;
+	st->need_space = 0;
 }
 
 /* Emit inline text to output or active buffer */

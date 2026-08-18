@@ -1,0 +1,6 @@
+### Release Checklist
+
+* [x] Build binary packages
+* [x] Run sanitizers (ASan + UBSan)
+* [ ] Update release documentation
+* [ ] Publish GitHub release
