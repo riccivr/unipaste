@@ -30,38 +30,51 @@ Requirements
 ------------
 In order to build `unipaste` you need a C99 compiler and `make`.
 
-Installation & Package Managers
----------------------------------
+Installation & Setup
+--------------------
 
-### 1. Homebrew (macOS & Linux)
+### Option A: The "You Do It" / Suckless DIY Approach (Recommended)
+True to suckless software philosophy, `unipaste` is 100% dependency-free, standard C99, and builds in milliseconds:
+
+```sh
+git clone https://github.com/riccivr/unipaste.git
+cd unipaste
+make
+sudo make install
+```
+*(Customizable prefix and compiler flags can be edited directly in `config.mk`, `/usr/local` by default).*
+
+---
+
+### Option B: Package Managers
+
+#### Homebrew (macOS & Linux)
 ```sh
 brew tap riccivr/tap
 brew install unipaste
 ```
 
-### 2. Arch Linux (AUR)
+#### Arch Linux (AUR)
 ```sh
 yay -S unipaste
 # or with paru:
 paru -S unipaste
 ```
 
-### 3. Debian / Ubuntu (.deb)
+#### Debian / Ubuntu (.deb)
 ```sh
-# Build locally with make deb or download from Releases
 sudo dpkg -i unipaste_1.1.0_amd64.deb
 ```
 
-### 4. Windows (Chocolatey)
+#### Windows (Chocolatey)
 ```powershell
 choco install unipaste
 ```
 
-### 5. Build from Source (POSIX / Suckless standard)
-Edit `config.mk` to match your local setup (`/usr/local` by default):
+---
 
-    make
-    sudo make install
+### Option C: Pre-built Binary Releases
+Pre-compiled standalone binaries for Linux (`x86_64`), Windows (`unipaste.exe`), and Debian `.deb` packages are available on the [GitHub Releases](https://github.com/riccivr/unipaste/releases) page.
 
 Plugin Architecture & HTML Sanitization
 ---------------------------------------
