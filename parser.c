@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "unipaste.h"
+#include "plugin.h"
 
 /* Safe string duplicate */
 static char *
@@ -605,9 +606,17 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 	int in_script_or_style = 0;
 	char char_buf[8];
 	int i;
+	char *sanitized = NULL;
 
 	if (!input || !out || !cfg)
 		return 0;
+
+	/* Plugin hook: sanitize input before formatting if compiled in */
+	sanitized = sanitize_html(input, len);
+	if (sanitized) {
+		input = sanitized;
+		len = strlen(sanitized);
+	}
 
 	memset(&st, 0, sizeof(st));
 	st.cfg = cfg;
@@ -768,6 +777,7 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 	strbuf_free(&st.textbuf);
 	strbuf_free(&st.link_text);
 	strbuf_free(&st.heading_text);
+	free(sanitized);
 
 	return 0;
 }
