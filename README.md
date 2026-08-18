@@ -23,6 +23,7 @@ Features
 * **Link fidelity**: Configurable hyperlink preservation (bracketed `Title (url)`, markdown `[Title](url)`, text-only, or footnote `[1]` references).
 * **HTML entity decoder**: Comprehensive decoder for named (`&amp;`, `&quot;`, `&mdash;`, `&copy;`, etc.) and numeric (`&#160;`, `&#x2014;`) entities.
 * **Windows CF_HTML aware**: Automatically recognizes and strips Windows clipboard `Version:0.9` / `<!--StartFragment-->` headers.
+* **Compile-time plugin architecture**: Optional allowlist-based HTML sanitization pre-pass without compromising the zero-dependency default.
 * **Memory safe**: Tested with AddressSanitizer and UndefinedBehaviorSanitizer.
 
 Requirements
@@ -39,11 +40,71 @@ Afterwards enter the following command to build and install unipaste:
     make
     make install
 
+Plugin Architecture & HTML Sanitization
+---------------------------------------
+In line with suckless software principles, **the default build of unipaste is 100% dependency-free**.
+
+However, when processing clipboard data or HTML from untrusted environments (e.g. public websites, unknown email clients, or untrusted user inputs), malicious payloads may embed `<script>` injections, event handlers (`onclick=`, `onerror=`), `javascript:` URIs, or tracker tags.
+
+`unipaste` provides a **compile-time modular plugin architecture** via `plugin.h`. It incurs **zero runtime overhead** and avoids dynamic linker/`dlopen` complexity:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                     Raw HTML Input                       │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│  Plugin Hook: sanitize_html(input, len)                  │
+│  • Default (plugin_none.c): No-op / passthrough          │
+│  • Builtin (plugin_builtin.c): Allowlist tag/attr filter │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│  unipaste Core Engine (parser.c, table.c, entity.c)      │
+│  • Reconstructs tables, lists, code fences, markdown     │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Building with the Built-in HTML Sanitizer
+
+To build `unipaste` with the built-in allowlist sanitizer enabled:
+
+    make SANITIZE=builtin
+
+When built with `SANITIZE=builtin`:
+* **Disallowed tags are stripped**: `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<svg>`, and `<math>` are removed entirely along with their inner contents.
+* **Safe structural tags are preserved**: `<p>`, `<h1>`-`<h6>`, `<table>`, `<ul>`, `<ol>`, `<li>`, `<pre>`, `<code>`, `<blockquote>`, `<a>`, `<b>`, `<i>`, `<input>`.
+* **Dangerous event handlers are deleted**: `onclick`, `onload`, `onerror`, etc.
+* **Safe URIs only**: `href` and `src` attributes are validated against dangerous schemes (`javascript:`, `data:`, `vbscript:` are blocked).
+
+### Writing Custom Sanitizer Plugins
+
+Custom backends (e.g., binding to external libraries like `libxml2` or Rust-based `ammonia`) can be integrated cleanly:
+
+1. Create a C file (e.g. `plugin_custom.c`) implementing the hook:
+   ```c
+   #include "plugin.h"
+   char *sanitize_html(const char *input, size_t len) {
+       /* Your custom sanitization logic */
+       /* Return newly allocated char* (freed by caller) or NULL */
+   }
+   ```
+2. Build with your plugin:
+   ```sh
+   make PLUGIN_SRC=plugin_custom.c
+   ```
+
 Running tests
 -------------
-To execute the automated test suite:
+To execute the automated test suite across all 37 test cases:
 
     make test
+
+To run tests with the built-in sanitizer enabled:
+
+    make SANITIZE=builtin test
 
 To run AddressSanitizer and UndefinedBehaviorSanitizer tests:
 
