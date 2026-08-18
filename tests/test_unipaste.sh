@@ -88,9 +88,12 @@ EndFragment:0000000250
 </body></html>'
 test_contains "CF_HTML Fragment extraction" "$CF_HTML" "Copied from Slack!" ""
 
-# Test 10: Unicode box tables
+# Test 10: Unicode box tables and UTF-8 width alignment
+UTF8_TABLE='<table><tr><th>Item</th><th>Symbol</th></tr><tr><td>Euro</td><td>€ 100</td></tr><tr><td>Check</td><td>✓ Done</td></tr></table>'
 test_contains "Unicode Table" "$SLACK_TABLE" "┌" "-u"
 test_contains "Unicode Table Border" "$SLACK_TABLE" "│ Product" "-u"
+test_contains "UTF-8 Table Width Alignment" "$UTF8_TABLE" "| Euro  | € 100  |" ""
+test_contains "UTF-8 Table Row 2 Alignment" "$UTF8_TABLE" "| Check | ✓ Done |" ""
 
 # Test 11: Task lists
 TASK_HTML='<ul><li><input type="checkbox" checked> Task done</li><li><input type="checkbox"> Task pending</li></ul>'
@@ -99,6 +102,14 @@ test_contains "Task list unchecked" "$TASK_HTML" "[ ] Task pending" ""
 
 # Test 12: TSV Table mode
 test_contains "TSV Table" "$SLACK_TABLE" 'Widget A	$10.00	In Stock' "-t tsv"
+
+# Test 13: Security & Edge Cases
+test_contains "Edge: Unclosed tag at EOF" "<p>Unclosed tag <b" "Unclosed tag" ""
+test_contains "Edge: Unclosed comment at EOF" "Hello <!-- unclosed comment" "Hello" ""
+test_contains "Edge: Unclosed table at EOF" "<table><tr><td>Cell 1</td><td>Cell 2</td></tr>" "Cell 1" ""
+test_contains "Edge: Nested unclosed tables" "<table><tr><td>Outer</td></tr><table><tr><td>Inner</td></tr></table>" "Inner" ""
+test_contains "Edge: Invalid numeric entities literal" "Test &#99999999999999999999; and &#xDEADBEEF; and &#xD800; entities" "&#99999999999999999999;" ""
+test_contains "Edge: Surrogates rejection literal" "Test &#55296; surrogate" "&#55296;" ""
 
 echo ""
 echo "======================================"
