@@ -47,8 +47,12 @@ uninstall:
 test: unipaste
 	sh tests/test_unipaste.sh
 
+stress: unipaste
+	sh tests/test_stress.sh
+
 sanitize: clean
 	$(CC) $(CFLAGS) -g -fsanitize=address,undefined $(SRC) -o unipaste $(LDFLAGS) -fsanitize=address,undefined
 	sh tests/test_unipaste.sh
+	sh tests/test_stress.sh
 
-.PHONY: all clean dist install uninstall test sanitize
+.PHONY: all clean dist install uninstall test stress sanitize
