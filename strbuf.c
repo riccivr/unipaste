@@ -2,11 +2,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "unipaste.h"
 
 void
 strbuf_init(struct strbuf *sb, size_t initial_cap)
 {
+	if (!sb)
+		return;
+
 	if (initial_cap < 32)
 		initial_cap = 32;
 
@@ -43,15 +47,30 @@ strbuf_reset(struct strbuf *sb)
 static void
 strbuf_grow(struct strbuf *sb, size_t needed)
 {
+	size_t min_cap;
 	size_t new_cap;
 	char *new_data;
 
-	if (sb->len + needed + 1 <= sb->cap)
+	if (!sb || !sb->data)
 		return;
 
-	new_cap = sb->cap * 2;
-	if (new_cap < sb->len + needed + 1)
-		new_cap = sb->len + needed + 1024;
+	/* Prevent size_t integer overflow */
+	if (needed > (SIZE_MAX - sb->len - 1)) {
+		fprintf(stderr, "unipaste: buffer size overflow\n");
+		exit(1);
+	}
+
+	min_cap = sb->len + needed + 1;
+	if (min_cap <= sb->cap)
+		return;
+
+	if (sb->cap > SIZE_MAX / 2)
+		new_cap = min_cap;
+	else
+		new_cap = sb->cap * 2;
+
+	if (new_cap < min_cap)
+		new_cap = min_cap;
 
 	new_data = realloc(sb->data, new_cap);
 	if (!new_data) {
@@ -65,6 +84,8 @@ strbuf_grow(struct strbuf *sb, size_t needed)
 void
 strbuf_putc(struct strbuf *sb, char c)
 {
+	if (!sb)
+		return;
 	strbuf_grow(sb, 1);
 	sb->data[sb->len++] = c;
 	sb->data[sb->len] = '\0';
@@ -75,7 +96,7 @@ strbuf_puts(struct strbuf *sb, const char *s)
 {
 	size_t slen;
 
-	if (!s || !*s)
+	if (!sb || !s || !*s)
 		return;
 	slen = strlen(s);
 	strbuf_grow(sb, slen);
@@ -87,7 +108,7 @@ strbuf_puts(struct strbuf *sb, const char *s)
 void
 strbuf_append(struct strbuf *sb, const char *data, size_t len)
 {
-	if (!data || len == 0)
+	if (!sb || !data || len == 0)
 		return;
 	strbuf_grow(sb, len);
 	memcpy(sb->data + sb->len, data, len);
