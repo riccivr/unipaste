@@ -26,6 +26,26 @@ test_contains() {
 	esac
 }
 
+test_not_contains() {
+	NAME="$1"
+	INPUT="$2"
+	FORBIDDEN="$3"
+	ARGS="$4"
+
+	ACTUAL=$(printf "%s" "$INPUT" | $EXE $ARGS)
+	case "$ACTUAL" in
+		*"$FORBIDDEN"*)
+			printf "[FAIL] %s (found forbidden '%s')\n" "$NAME" "$FORBIDDEN"
+			printf "=== Actual ===\n%s\n" "$ACTUAL"
+			FAILED=$((FAILED + 1))
+			;;
+		*)
+			printf "[PASS] %s\n" "$NAME"
+			PASSED=$((PASSED + 1))
+			;;
+	esac
+}
+
 echo "Running unipaste test suite..."
 
 # Test 1: Basic text and paragraphs
@@ -110,6 +130,11 @@ test_contains "Edge: Unclosed table at EOF" "<table><tr><td>Cell 1</td><td>Cell 
 test_contains "Edge: Nested unclosed tables" "<table><tr><td>Outer</td></tr><table><tr><td>Inner</td></tr></table>" "Inner" ""
 test_contains "Edge: Invalid numeric entities literal" "Test &#99999999999999999999; and &#xDEADBEEF; and &#xD800; entities" "&#99999999999999999999;" ""
 test_contains "Edge: Surrogates rejection literal" "Test &#55296; surrogate" "&#55296;" ""
+
+# Test 14: Script and Malicious Tag Neutralization
+XSS_HTML='<p>Hello <script>evil_code();</script>World<style>body{color:red;}</style>!</p>'
+test_contains "XSS: Script tag content excluded" "$XSS_HTML" "Hello World!" ""
+test_not_contains "XSS: Script content absent" "$XSS_HTML" "evil_code" ""
 
 echo ""
 echo "======================================"
