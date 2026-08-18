@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <errno.h>
 #include "unipaste.h"
 
 /* Structure for named HTML entity mappings */
@@ -90,7 +91,8 @@ static const struct entity_map NAMED_ENTITIES[] = {
 static size_t
 utf8_encode(uint32_t cp, char *out)
 {
-	if (cp == 0) {
+	/* Reject invalid unicode codepoints and surrogates */
+	if (cp == 0 || cp > 0x10FFFF || (cp >= 0xD800 && cp <= 0xDFFF)) {
 		return 0;
 	} else if (cp == 0xA0) {
 		/* Non-breaking space -> regular space for clean plaintext */
@@ -108,14 +110,13 @@ utf8_encode(uint32_t cp, char *out)
 		out[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
 		out[2] = (char)(0x80 | (cp & 0x3F));
 		return 3;
-	} else if (cp < 0x110000) {
+	} else {
 		out[0] = (char)(0xF0 | (cp >> 18));
 		out[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
 		out[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
 		out[3] = (char)(0x80 | (cp & 0x3F));
 		return 4;
 	}
-	return 0;
 }
 
 /* Decodes a single HTML entity starting at src (which points to '&').
@@ -126,7 +127,7 @@ decode_html_entity(const char *src, char *dest, size_t dest_size)
 {
 	size_t len = 0;
 	char ent_name[32];
-	uint32_t cp;
+	unsigned long val;
 	char *endptr;
 	size_t i;
 	size_t ulen;
@@ -149,21 +150,27 @@ decode_html_entity(const char *src, char *dest, size_t dest_size)
 
 	/* Numeric decimal entity: &#123; */
 	if (ent_name[0] == '#' && isdigit((unsigned char)ent_name[1])) {
-		cp = (uint32_t)strtoul(ent_name + 1, &endptr, 10);
-		if (*endptr == '\0') {
-			ulen = utf8_encode(cp, dest);
-			dest[ulen] = '\0';
-			return len + 1; /* Consumed '&' ... ';' */
+		errno = 0;
+		val = strtoul(ent_name + 1, &endptr, 10);
+		if (errno == 0 && *endptr == '\0' && val <= 0x10FFFF) {
+			ulen = utf8_encode((uint32_t)val, dest);
+			if (ulen > 0 && ulen < dest_size) {
+				dest[ulen] = '\0';
+				return len + 1;
+			}
 		}
 	}
 
 	/* Numeric hex entity: &#x1F600; or &#X1F600; */
-	if (ent_name[0] == '#' && (ent_name[1] == 'x' || ent_name[1] == 'X')) {
-		cp = (uint32_t)strtoul(ent_name + 2, &endptr, 16);
-		if (*endptr == '\0') {
-			ulen = utf8_encode(cp, dest);
-			dest[ulen] = '\0';
-			return len + 1;
+	if (ent_name[0] == '#' && (ent_name[1] == 'x' || ent_name[1] == 'X') && isxdigit((unsigned char)ent_name[2])) {
+		errno = 0;
+		val = strtoul(ent_name + 2, &endptr, 16);
+		if (errno == 0 && *endptr == '\0' && val <= 0x10FFFF) {
+			ulen = utf8_encode((uint32_t)val, dest);
+			if (ulen > 0 && ulen < dest_size) {
+				dest[ulen] = '\0';
+				return len + 1;
+			}
 		}
 	}
 

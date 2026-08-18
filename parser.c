@@ -5,6 +5,25 @@
 #include <ctype.h>
 #include "unipaste.h"
 
+/* Safe string duplicate */
+static char *
+xstrdup(const char *s)
+{
+	char *res;
+	size_t len;
+
+	if (!s)
+		return NULL;
+	len = strlen(s);
+	res = malloc(len + 1);
+	if (!res) {
+		fprintf(stderr, "unipaste: memory allocation failed\n");
+		exit(1);
+	}
+	memcpy(res, s, len + 1);
+	return res;
+}
+
 /* Case-insensitive string comparison helper */
 static int
 ci_equal(const char *a, const char *b)
@@ -30,10 +49,14 @@ static int
 extract_attribute(const char *tag_str, const char *attr_name, char *val_out, size_t max_len)
 {
 	const char *p = tag_str;
-	size_t attr_len = strlen(attr_name);
+	size_t attr_len;
 	char quote;
 	size_t i;
 
+	if (!tag_str || !attr_name || !val_out || max_len == 0)
+		return 0;
+
+	attr_len = strlen(attr_name);
 	val_out[0] = '\0';
 
 	while (*p) {
@@ -248,6 +271,11 @@ flush_link(struct parser_state *st)
 	if (st->at_line_start)
 		emit_indent(st);
 
+	if (st->need_space && !st->at_line_start) {
+		strbuf_putc(&st->outbuf, ' ');
+		st->need_space = 0;
+	}
+
 	if (st->current_href[0] == '\0' || lstyle == LINK_STYLE_TEXTONLY) {
 		strbuf_puts(&st->outbuf, txt);
 	} else if (lstyle == LINK_STYLE_INLINE) {
@@ -265,7 +293,7 @@ flush_link(struct parser_state *st)
 		}
 	} else if (lstyle == LINK_STYLE_FOOTNOTE) {
 		if (st->num_footnotes < 255) {
-			st->footnotes[st->num_footnotes] = strdup(st->current_href);
+			st->footnotes[st->num_footnotes] = xstrdup(st->current_href);
 			st->num_footnotes++;
 			strbuf_puts(&st->outbuf, txt);
 			snprintf(fn_buf, sizeof(fn_buf), " [%d]", st->num_footnotes);
@@ -560,7 +588,7 @@ find_fragment_len(const char *src, size_t total_len)
 {
 	const char *marker = "<!--EndFragment-->";
 	const char *p = strstr(src, marker);
-	if (p)
+	if (p && p >= src)
 		return (size_t)(p - src);
 	return total_len;
 }
@@ -577,6 +605,9 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 	int in_script_or_style = 0;
 	char char_buf[8];
 	int i;
+
+	if (!input || !out || !cfg)
+		return 0;
 
 	memset(&st, 0, sizeof(st));
 	st.cfg = cfg;
@@ -606,6 +637,8 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 				p++;
 			if (p + 2 < end)
 				p += 3;
+			else
+				p = end;
 			continue;
 		}
 
@@ -615,7 +648,8 @@ unipaste_process_string(const char *input, size_t len, FILE *out, const struct c
 			strbuf_reset(&st.tagbuf);
 			p++;
 			while (p < end && *p != '>') {
-				strbuf_putc(&st.tagbuf, *p);
+				if (st.tagbuf.len < 65536)
+					strbuf_putc(&st.tagbuf, *p);
 				p++;
 			}
 			if (p < end && *p == '>')
@@ -746,6 +780,9 @@ unipaste_process_stream(FILE *in, FILE *out, const struct config *cfg)
 	char chunk[4096];
 	size_t n;
 	int res;
+
+	if (!in || !out || !cfg)
+		return 1;
 
 	strbuf_init(&input_buf, 8192);
 	while ((n = fread(chunk, 1, sizeof(chunk), in)) > 0) {
