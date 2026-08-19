@@ -1,3 +1,11 @@
 unipaste
+unipaste.exe
+fuzz_unipaste
+crash-*
+leak-*
 *.o
 *.tar.gz
+*.zip
+*.deb
+build/
+tests/fixtures/[0-9a-f][0-9a-f]*

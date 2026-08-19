@@ -1,14 +1,5 @@
 /* See LICENSE file for copyright and license details. */
-/*
- * plugin_builtin.c - Built-in zero-dependency allowlist HTML sanitizer
- *
- * Implements an allowlist-based HTML sanitization pre-pass:
- * 1. Strips dangerous tags and their content (<script>, <style>, <iframe>, <object>, etc.)
- * 2. Allows only safe structural/formatting HTML tags
- * 3. Strips all inline event handlers (onclick, onerror, onload, etc.)
- * 4. Filters dangerous URI schemes (javascript:, data:, vbscript:) in href/src
- * 5. Returns a newly allocated sanitized HTML string (caller frees)
- */
+/* Built-in HTML sanitizer: strips scripts, styles, iframes, and unsafe handlers. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
