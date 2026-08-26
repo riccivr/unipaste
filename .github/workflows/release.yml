@@ -1,0 +1,50 @@
+name: Release Matrix (Linux, Windows, Debian)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install MinGW and Zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 zip
+
+      - name: Build Source Tarball
+        run: make dist
+
+      - name: Build Linux Binary
+        run: |
+          make
+          tar -czvf unipaste-linux-x86_64.tar.gz unipaste unipaste.1 README.md LICENSE
+
+      - name: Build Debian Package
+        run: make deb
+
+      - name: Build Windows Binary & Zip
+        run: |
+          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste.exe -s
+          zip unipaste-windows-x64.zip unipaste.exe unipaste.1 README.md LICENSE
+
+      - name: Publish Assets to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            unipaste-*.tar.gz
+            unipaste_*.deb
+            unipaste-windows-x64.zip
+            unipaste-linux-x86_64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

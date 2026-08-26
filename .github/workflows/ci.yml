@@ -1,0 +1,78 @@
+name: CI Test Matrix
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-linux:
+    name: Linux (GCC, Clang, ASan, Valgrind, Fuzzer)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang valgrind
+
+      - name: Build & Run Unit and Golden Fixture Tests
+        run: make test
+
+      - name: Build & Run with Built-in HTML Sanitizer
+        run: make SANITIZE=builtin test
+
+      - name: Run Pathological & Stress Tests
+        run: make stress
+
+      - name: Run AddressSanitizer & UndefinedBehaviorSanitizer
+        run: make sanitize
+
+      - name: Run Valgrind Memory Leak Checks
+        run: make valgrind
+
+      - name: Run LLVM LibFuzzer
+        run: make fuzz
+
+      - name: Build Debian Package
+        run: make deb
+
+      - name: Build Source Distribution Tarball
+        run: make dist
+
+  test-macos:
+    name: macOS (Clang)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build & Run Tests
+        run: |
+          make test
+          make SANITIZE=builtin test
+          make stress
+
+  test-windows:
+    name: Windows (MinGW)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile unipaste.exe
+        shell: bash
+        run: |
+          gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste.exe -s
+
+      - name: Verify CLI on Windows
+        shell: pwsh
+        run: |
+          .\unipaste.exe -v
+          echo "<p>Hello Windows</p>" | .\unipaste.exe
