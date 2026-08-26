@@ -38,6 +38,21 @@ ci_equal(const char *a, const char *b)
 	return (*a == '\0' && *b == '\0');
 }
 
+/* Case-insensitive bounded prefix comparison helper */
+static int
+ci_n_equal(const char *a, const char *b, size_t n)
+{
+	size_t i;
+
+	for (i = 0; i < n; i++) {
+		if (!a[i] || !b[i])
+			return (a[i] == b[i]);
+		if (tolower((unsigned char)a[i]) != tolower((unsigned char)b[i]))
+			return 0;
+	}
+	return 1;
+}
+
 /* Check if tag name matches */
 static int
 tag_is(const char *tag, const char *name)
@@ -66,7 +81,7 @@ extract_attribute(const char *tag_str, const char *attr_name, char *val_out, siz
 			while (isspace((unsigned char)*p))
 				p++;
 
-			if (strncasecmp(p, attr_name, attr_len) == 0 && (p[attr_len] == '=' || isspace((unsigned char)p[attr_len]))) {
+			if (ci_n_equal(p, attr_name, attr_len) && (p[attr_len] == '=' || isspace((unsigned char)p[attr_len]))) {
 				p += attr_len;
 				while (isspace((unsigned char)*p))
 					p++;
