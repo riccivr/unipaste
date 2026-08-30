@@ -138,13 +138,13 @@ def add_event(delta, text):
     current_time += delta
     events.append([round(current_time, 3), "o", text])
 
-def type_command(cmd, prompt="ricci@workstation:~$ ", typing_speed=0.03):
+def type_command(cmd, prompt="riccivr@workstation:~$ ", typing_speed=0.03):
     add_event(0.2, prompt)
     for ch in cmd:
         add_event(typing_speed, ch)
     add_event(0.15, "\r\n")
 
-def run_and_record(cmd_display, shell_cmd, prompt="ricci@workstation:~$ ", pause_after=2.0):
+def run_and_record(cmd_display, shell_cmd, prompt="riccivr@workstation:~$ ", pause_after=2.0):
     type_command(cmd_display, prompt)
     proc = subprocess.run(shell_cmd, shell=True, capture_output=True, text=True)
     out = proc.stdout
@@ -171,7 +171,7 @@ run_and_record("unipaste -m markdown /tmp/consensus.html", "unipaste -m markdown
 run_and_record("unipaste -l footnote /tmp/consensus.html", "unipaste -l footnote /tmp/consensus.html", pause_after=2.5)
 
 # Final prompt
-add_event(0.2, "ricci@workstation:~$ ")
+add_event(0.2, "riccivr@workstation:~$ ")
 add_event(1.5, "")
 
 header = {

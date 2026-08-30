@@ -4,7 +4,7 @@ unipaste
 
 When you copy formatted content from Slack, Microsoft Teams, Discord, Google Chrome, or other web apps into plain-text editors (Notepad, nano, vim), tables collapse into single lines, code blocks lose indentation, lists lose nesting, and links lose their target URLs. `unipaste` reads the rich HTML from standard input or files and formats tables, code blocks, lists, and links in plain text.
 
-[![Demo](assets/demo.gif)](https://asciinema.org/a/qy4vuBASEfNLLzwn)
+[![Demo](assets/demo.gif)](https://asciinema.org/a/ghzy8NsCYziHVaTO)
 
 Features
 --------
