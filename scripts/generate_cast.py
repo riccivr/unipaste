@@ -8,81 +8,124 @@ def run_unipaste(args, input_str):
 events = []
 t = 0.0
 
-def emit(text, delay=0.04):
+def emit(text, delay=0.03):
     global t
     t += delay
     events.append([round(t, 2), "o", text])
 
-def type_cmd(cmd, post_delay=0.35):
+def emit_section(title):
+    global t
+    t += 0.4
+    banner = f"\r\n\x1b[1;36m━━━ {title} ━━━\x1b[0m\r\n"
+    emit(banner, 0.1)
+
+def type_cmd(cmd, post_delay=0.3):
     global t
     prompt = "\x1b[1;32mriccivr@workstation\x1b[0m:\x1b[1;34m~\x1b[0m$ "
-    emit(prompt, 0.2)
+    emit(prompt, 0.15)
     for c in cmd:
-        emit(c, 0.03)
-    emit("\r\n", 0.12)
+        emit(c, 0.025)
+    emit("\r\n", 0.1)
     t += post_delay
 
 emit("\x1b[2J\x1b[H", 0.0)
 
-# 1. Version Check
+# Section 1: Introduction & Version
+emit_section("1. unipaste 1.2.0 Universal Rich Text & Stream Converter")
 type_cmd("unipaste -v")
 out = run_unipaste(["-v"], "")
 for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.04)
+    emit(line + "\r\n", 0.03)
 
-# 2. Table with Unicode box borders
-type_cmd("curl -s https://api.internal/metrics | unipaste -u")
-sample_table = "<h3>Cluster Performance</h3><table><thead><tr><th>Node</th><th>CPU</th><th>Status</th></tr></thead><tbody><tr><td>node-01</td><td>12.4%</td><td>Healthy</td></tr><tr><td>node-02</td><td>89.1%</td><td>High Load</td></tr><tr><td>node-03</td><td>4.2%</td><td>Healthy</td></tr></tbody></table>"
+# Section 2: Core HTML Formatting (Headings, Lists, Checkboxes, Code)
+emit_section("2. Rich Formatting: Headings, Task Lists & Code Blocks")
+type_cmd("cat sprint.html | unipaste")
+sample_core = """<h2>Sprint 42 Deliverables</h2>
+<p>High priority updates for <b>production</b> and <i>staging</i> clusters:</p>
+<ul>
+  <li><input type="checkbox" checked> Deploy zero-downtime database migration</li>
+  <li><input type="checkbox"> Scale Kubernetes pods to 16 replicas</li>
+</ul>
+<pre><code class="language-rust">fn main() {
+    println!("Zero dependencies, pure C99!");
+}</code></pre>"""
+out = run_unipaste([], sample_core)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+# Section 3: Tables - Unicode Box, Markdown & ASCII Grids
+emit_section("3. Tables: Unicode Box Drawing (-u) & Markdown Pipes")
+type_cmd("cat metrics.html | unipaste -u")
+sample_table = """<table>
+  <thead><tr><th>Service</th><th>Latency (p99)</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>auth-api</td><td>14.2 ms</td><td>Healthy</td></tr>
+    <tr><td>payment-gateway</td><td>28.5 ms</td><td>Healthy</td></tr>
+    <tr><td>worker-pool</td><td>142.0 ms</td><td>Degraded</td></tr>
+  </tbody>
+</table>"""
 out = run_unipaste(["-u"], sample_table)
 for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
+    emit(line + "\r\n", 0.025)
 
-# 3. URL Tracking Stripper
-type_cmd("xclip -o | unipaste -m markdown  # Automatic URL tracking stripper")
-sample_url = '<p>Check release notes on <a href="https://github.com/riccivr/unipaste?utm_source=linkedin&utm_medium=social&fbclid=IwAR3x#features">GitHub Releases</a>!</p>'
-out = run_unipaste(["-m", "markdown"], sample_url)
-for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
-
-# 4. Slack & Jira Dialects
-type_cmd("pbpaste | unipaste -m slack     # Slack / Discord mrkdwn")
-sample_rich = '<h2>Sprint Planning</h2><p>Review <b>Q3 Roadmap</b> with <i>backend team</i>. Ref: <a href="https://jira.corp.net">Dashboard</a></p><pre><code class="language-python">def deploy(): pass</code></pre>'
-out = run_unipaste(["-m", "slack"], sample_rich)
-for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
-
-type_cmd("pbpaste | unipaste -m jira      # Jira / Confluence wiki")
-out = run_unipaste(["-m", "jira"], sample_rich)
-for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
-
-# 5. KaTeX / MathML LaTeX Extraction
-type_cmd("cat formula.html | unipaste -m markdown")
-sample_math = '<p>Mass-energy is <span class="katex"><math><semantics><annotation encoding="application/x-tex">E = mc^2</annotation></semantics></math></span> and integral:</p><span class="katex-display"><math display="block"><semantics><annotation encoding="application/x-tex">\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}</annotation></semantics></math></span>'
-out = run_unipaste(["-m", "markdown"], sample_math)
-for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
-
-# 6. Raw TSV Ingestion
-type_cmd("cat data.tsv | unipaste -m markdown  # Auto-detects Excel & Google Sheets TSV")
-sample_tsv = "Product\tStock\tPrice\nMacBook M3\t14\t$1,499.00\nThinkPad X1\t28\t$1,249.00\nDell XPS 15\t9\t$1,399.00\n"
+# Section 4: Raw TSV Spreadsheet Auto-Conversion
+emit_section("4. Raw TSV Ingestion (Excel & Google Sheets clipboard)")
+type_cmd("cat spreadsheet.tsv | unipaste -m markdown")
+sample_tsv = "Product\tRegion\tQ1 Revenue\tGrowth\nCloud Pro\tUS-East\t$128,450\t+34.2%\nEnterprise\tEU-West\t$240,100\t+18.9%\nEdge Node\tAP-South\t$84,300\t+52.1%\n"
 out = run_unipaste(["-m", "markdown"], sample_tsv)
 for line in out.strip().split("\n"):
-    emit(line + "\r\n", 0.03)
+    emit(line + "\r\n", 0.025)
 
-emit("\x1b[1;32mriccivr@workstation\x1b[0m:\x1b[1;34m~\x1b[0m$ ", 0.5)
+# Section 5: Telemetry & URL Tracking Stripper
+emit_section("5. Privacy: Automatic URL Tracking & Telemetry Stripper")
+type_cmd("cat marketing_link.html | unipaste")
+sample_tracking = '<p>Check out our docs on <a href="https://github.com/riccivr/unipaste?utm_source=linkedin&utm_medium=feed&fbclid=IwAR3x&rcm=ACoAA#get-started">GitHub Docs</a>!</p>'
+out = run_unipaste([], sample_tracking)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+# Section 6: MathML & KaTeX LaTeX Extraction
+emit_section("6. Math: KaTeX / MathML LaTeX Formula Extraction")
+type_cmd("cat formula.html | unipaste")
+sample_math = '<p>Mass-energy is <span class="katex"><math><semantics><annotation encoding="application/x-tex">E = mc^2</annotation></semantics></math></span> and the Euler-Poisson integral:</p><span class="katex-display"><math display="block"><semantics><annotation encoding="application/x-tex">\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}</annotation></semantics></math></span>'
+out = run_unipaste([], sample_math)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+# Section 7: Dialect Output Modes (Slack & Jira)
+emit_section("7. Dialect Targets: Slack / Discord & Jira Wiki Markup")
+type_cmd("cat announcement.html | unipaste -m slack")
+sample_dialect = '<h3>Deployment Complete</h3><p>Version <b>v1.2.0</b> deployed. See <a href="https://ops.corp.internal">Ops Dashboard</a>.</p>'
+out = run_unipaste(["-m", "slack"], sample_dialect)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+type_cmd("cat announcement.html | unipaste -m jira")
+out = run_unipaste(["-m", "jira"], sample_dialect)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+# Section 8: Link Footnote Style (-l footnote)
+emit_section("8. Footnote References (-l footnote)")
+type_cmd("cat article.html | unipaste -l footnote")
+sample_fn = '<p>Built with <a href="https://github.com/riccivr/unipaste">unipaste</a> and paired with <a href="https://github.com/riccivr/clipbridge">clipbridge</a>.</p>'
+out = run_unipaste(["-l", "footnote"], sample_fn)
+for line in out.strip().split("\n"):
+    emit(line + "\r\n", 0.025)
+
+emit("\r\n\x1b[1;32mriccivr@workstation\x1b[0m:\x1b[1;34m~\x1b[0m$ ", 0.5)
 
 header = {
     "version": 2,
-    "width": 92,
+    "width": 94,
     "height": 38,
     "timestamp": 1788100000,
     "env": {"SHELL": "/bin/bash", "TERM": "xterm-256color"},
-    "title": "unipaste 1.2.0 showcase"
+    "title": "unipaste 1.2.0 feature showcase"
 }
 
 with open("assets/demo.cast", "w", encoding="utf-8") as f:
     f.write(json.dumps(header) + "\n")
     for event in events:
         f.write(json.dumps(event) + "\n")
-print(f"Done: assets/demo.cast ({t:.1f}s, {len(events)} events)")
+print(f"Generated assets/demo.cast ({t:.1f}s, {len(events)} events)")
