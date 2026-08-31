@@ -27,7 +27,7 @@ clean:
 
 dist: clean
 	mkdir -p unipaste-$(VERSION)/tests unipaste-$(VERSION)/packaging
-	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h $(SRC) plugin_none.c plugin_builtin.c tests fuzz packaging unipaste-$(VERSION)
+	cp -R LICENSE Makefile README.md config.mk unipaste.1 arg.h unipaste.h plugin.h unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c plugin_builtin.c tests fuzz packaging unipaste-$(VERSION)
 	tar -cf unipaste-$(VERSION).tar unipaste-$(VERSION)
 	gzip unipaste-$(VERSION).tar
 	rm -rf unipaste-$(VERSION)

@@ -17,13 +17,14 @@ static const char *allowed_tags[] = {
 	"blockquote",
 	"a", "b", "strong", "i", "em", "s", "del", "strike", "u",
 	"input", "img",
+	"math", "semantics", "annotation", "mrow", "mi", "mo", "mn", "msup", "msub", "mfrac", "msqrt", "mroot",
 	NULL
 };
 
 /* List of dangerous tags whose inner content must also be discarded */
 static const char *strip_content_tags[] = {
 	"script", "style", "head", "iframe", "object", "embed",
-	"applet", "svg", "math", "canvas", "template", "noscript",
+	"applet", "svg", "canvas", "template", "noscript",
 	NULL
 };
 
@@ -31,6 +32,7 @@ static const char *strip_content_tags[] = {
 static const char *allowed_attrs[] = {
 	"href", "class", "data-lang", "type", "checked",
 	"colspan", "rowspan", "alt", "src", "title",
+	"encoding", "display", "xmlns",
 	NULL
 };
 
