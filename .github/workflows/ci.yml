@@ -22,11 +22,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang valgrind
 
-      - name: Build & Run Unit and Golden Fixture Tests
+      - name: Build & Run Unit and Golden Fixture Tests (Default with Sanitizer)
         run: make test
 
-      - name: Build & Run with Built-in HTML Sanitizer
-        run: make SANITIZE=builtin test
+      - name: Build & Run with Zero-Sanitizer Pass-Through
+        run: make SANITIZE=none test
 
       - name: Run Pathological & Stress Tests
         run: make stress
@@ -56,7 +56,7 @@ jobs:
       - name: Build & Run Tests
         run: |
           make test
-          make SANITIZE=builtin test
+          make SANITIZE=none test
           make stress
 
   test-windows:
@@ -66,10 +66,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile unipaste.exe
+      - name: Compile unipaste.exe (Default Sanitizer)
         shell: bash
         run: |
-          gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste.exe -s
+          gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
 
       - name: Verify CLI on Windows
         shell: pwsh

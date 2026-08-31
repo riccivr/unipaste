@@ -3,12 +3,13 @@
 
 include config.mk
 
-# Plugin support (default: none, zero dependencies)
-# Build with sanitizer: make SANITIZE=builtin
-PLUGIN_SRC = plugin_none.c
-ifeq ($(SANITIZE),builtin)
+# Plugin support (default: built-in HTML sanitizer, zero external dependencies)
+# To disable sanitizer: make SANITIZE=none
 PLUGIN_SRC = plugin_builtin.c
 CFLAGS += -DSANITIZE_BUILTIN
+ifeq ($(SANITIZE),none)
+PLUGIN_SRC = plugin_none.c
+CFLAGS := $(filter-out -DSANITIZE_BUILTIN,$(CFLAGS))
 endif
 
 SRC = unipaste.c parser.c table.c entity.c strbuf.c $(PLUGIN_SRC)

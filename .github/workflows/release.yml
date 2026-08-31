@@ -24,18 +24,22 @@ jobs:
       - name: Build Source Tarball
         run: make dist
 
-      - name: Build Linux Binary
+      - name: Build Linux Binaries (Default Sanitizer & No-Sanitizer)
         run: |
+          make clean
           make
           tar -czvf unipaste-linux-x86_64.tar.gz unipaste unipaste.1 README.md LICENSE
+          make deb
+          make clean
+          make SANITIZE=none
+          tar -czvf unipaste-linux-x86_64-nosanitize.tar.gz unipaste unipaste.1 README.md LICENSE
 
-      - name: Build Debian Package
-        run: make deb
-
-      - name: Build Windows Binary & Zip
+      - name: Build Windows Binaries & Zip (Default Sanitizer & No-Sanitizer)
         run: |
-          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste.exe -s
+          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
           zip unipaste-windows-x64.zip unipaste.exe unipaste.1 README.md LICENSE
+          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste-nosanitize.exe -s
+          zip unipaste-windows-x64-nosanitize.zip unipaste-nosanitize.exe unipaste.1 README.md LICENSE
 
       - name: Publish Assets to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -44,7 +48,6 @@ jobs:
           files: |
             unipaste-*.tar.gz
             unipaste_*.deb
-            unipaste-windows-x64.zip
-            unipaste-linux-x86_64.tar.gz
+            unipaste-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

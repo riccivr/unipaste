@@ -62,14 +62,15 @@ choco install unipaste
 ### Pre-built Binaries
 Download pre-compiled binaries for Linux (x86_64), Windows (`unipaste.exe`), and Debian `.deb` packages from the [GitHub Releases](https://github.com/riccivr/unipaste/releases) page.
 
-HTML Sanitizer Plugin
----------------------
-By default, `unipaste` compiles with `plugin_none.c`, adding no extra dependencies or checks.
+HTML Sanitizer
+--------------
+By default, official releases and standard builds include the built-in HTML sanitizer (`plugin_builtin.c`). It strips unsafe scripts (`<script>`, `<style>`, `<iframe>`, `object`, `embed`) and inline event handlers (`onclick`, `onload`, `onerror`) while having **zero external runtime dependencies** (pure standard C99 libc).
 
-If you process untrusted HTML (such as scraping or public clipboard input) and want to strip `<script>`, `<style>`, `<iframe>`, and inline event handlers (`onclick`, `onerror`) before formatting, build with the built-in sanitizer:
+### Zero-Sanitizer Pass-Through Build
+If you want raw pass-through without any HTML tag stripping:
 
 ```sh
-make SANITIZE=builtin
+make SANITIZE=none
 ```
 
 ### Custom Sanitizers
@@ -92,7 +93,7 @@ make PLUGIN_SRC=plugin_custom.c
 Tests
 -----
 * **Unit and Golden Snapshot Tests**: `make test`
-* **Built-in Sanitizer Tests**: `make SANITIZE=builtin test`
+* **Zero-Sanitizer Pass-Through Tests**: `make SANITIZE=none test`
 * **Pathological and Stress Tests**: `make stress`
 * **AddressSanitizer and UBSan**: `make sanitize`
 * **Valgrind Memcheck**: `make valgrind`
