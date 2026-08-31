@@ -117,6 +117,107 @@ extract_attribute(const char *tag_str, const char *attr_name, char *val_out, siz
 	return 0;
 }
 
+/* Check if query parameter key is a known telemetry / tracking key */
+static int
+is_tracking_param(const char *key, size_t key_len)
+{
+	static const char *const exact_params[] = {
+		"fbclid", "gclid", "gbraid", "wbraid", "dclid", "msclkid",
+		"twclid", "igshid", "mc_cid", "mc_eid", "_hsenc", "_hsmi",
+		"_openstat", "vero_id", "vero_conv", "yclid", "si", "feature",
+		"rcm", "trk", "trackingId", "ref", "mkt_tok"
+	};
+	size_t i;
+
+	if (key_len >= 4 && strncmp(key, "utm_", 4) == 0)
+		return 1;
+	if (key_len >= 4 && strncmp(key, "ref_", 4) == 0)
+		return 1;
+
+	for (i = 0; i < sizeof(exact_params) / sizeof(exact_params[0]); i++) {
+		if (strlen(exact_params[i]) == key_len &&
+		    strncmp(key, exact_params[i], key_len) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* Strip tracking query parameters from URL in-place */
+void
+url_strip_tracking_inplace(char *url)
+{
+	char *qmark, *hash, *p, *param_start;
+	char cleaned_query[MAX_ATTR_VAL];
+	size_t cleaned_len = 0;
+	int has_kept_param = 0;
+	size_t hash_len = 0;
+	char hash_buf[MAX_ATTR_VAL];
+
+	if (!url || !*url)
+		return;
+
+	qmark = strchr(url, '?');
+	if (!qmark)
+		return;
+
+	hash = strchr(qmark, '#');
+	if (hash) {
+		hash_len = strlen(hash);
+		if (hash_len < sizeof(hash_buf)) {
+			memcpy(hash_buf, hash, hash_len + 1);
+		} else {
+			hash_buf[0] = '\0';
+			hash_len = 0;
+		}
+		*hash = '\0';
+	}
+
+	p = qmark + 1;
+	while (*p) {
+		param_start = p;
+		while (*p && *p != '&' && *p != ';')
+			p++;
+
+		char delim = *p;
+		size_t param_len = (size_t)(p - param_start);
+
+		if (param_len > 0) {
+			const char *eq = memchr(param_start, '=', param_len);
+			size_t key_len = eq ? (size_t)(eq - param_start) : param_len;
+
+			if (!is_tracking_param(param_start, key_len)) {
+				if (has_kept_param) {
+					if (cleaned_len + 1 < sizeof(cleaned_query))
+						cleaned_query[cleaned_len++] = '&';
+				}
+				if (cleaned_len + param_len < sizeof(cleaned_query)) {
+					memcpy(cleaned_query + cleaned_len, param_start, param_len);
+					cleaned_len += param_len;
+				}
+				has_kept_param = 1;
+			}
+		}
+
+		if (delim == '&' || delim == ';')
+			p++;
+	}
+
+	cleaned_query[cleaned_len] = '\0';
+
+	if (has_kept_param && cleaned_len > 0) {
+		*qmark = '?';
+		memcpy(qmark + 1, cleaned_query, cleaned_len);
+		qmark += 1 + cleaned_len;
+	}
+
+	if (hash_len > 0) {
+		memcpy(qmark, hash_buf, hash_len);
+		qmark += hash_len;
+	}
+	*qmark = '\0';
+}
+
 /* Emit newlines normalizing vertical whitespace */
 static void
 emit_newlines(struct parser_state *st, int count)
@@ -459,6 +560,8 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 			st->need_space = 0;
 		}
 		if (extract_attribute(tag_str, "href", st->current_href, sizeof(st->current_href))) {
+			if (!st->cfg->keep_tracking)
+				url_strip_tracking_inplace(st->current_href);
 			st->in_link = 1;
 			strbuf_reset(&st->link_text);
 		}

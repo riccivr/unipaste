@@ -136,6 +136,21 @@ XSS_HTML='<p>Hello <script>evil_code();</script>World<style>body{color:red;}</st
 test_contains "XSS: Script tag content excluded" "$XSS_HTML" "Hello World!" ""
 test_not_contains "XSS: Script content absent" "$XSS_HTML" "evil_code" ""
 
+# Test 15: URL Tracking Parameter Stripping
+LINKEDIN_URL='<p><a href="https://www.linkedin.com/posts/activity-123?utm_source=share&utm_medium=member_desktop&rcm=ACoAA123">LinkedIn Post</a></p>'
+test_contains "Tracking: Strip LinkedIn UTM & rcm" "$LINKEDIN_URL" "[LinkedIn Post](https://www.linkedin.com/posts/activity-123)" "-m markdown"
+
+YOUTUBE_URL='<p><a href="https://youtu.be/dQw4w9WgXcQ?si=abcdef123456&t=30">YouTube Video</a></p>'
+test_contains "Tracking: Strip YouTube si but keep t" "$YOUTUBE_URL" "[YouTube Video](https://youtu.be/dQw4w9WgXcQ?t=30)" "-m markdown"
+
+AMAZON_URL='<p><a href="https://www.amazon.com/dp/B000000?ref=cm_sw_r_cp_ud_dp_123&fbclid=IwAR123">Amazon Product</a></p>'
+test_contains "Tracking: Strip Amazon ref & fbclid" "$AMAZON_URL" "[Amazon Product](https://www.amazon.com/dp/B000000)" "-m markdown"
+
+ANCHOR_URL='<p><a href="https://github.com/riccivr/clipbridge?utm_source=twitter#installation">Repo Link</a></p>'
+test_contains "Tracking: Strip UTM but keep fragment" "$ANCHOR_URL" "[Repo Link](https://github.com/riccivr/clipbridge#installation)" "-m markdown"
+
+test_contains "Tracking: -K preserves tracking parameters" "$LINKEDIN_URL" "utm_source=share" "-m markdown -K"
+
 echo ""
 echo "======================================"
 echo "Results: $PASSED passed, $FAILED failed"

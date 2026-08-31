@@ -11,13 +11,14 @@ char *argv0;
 static void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [-urv] [-m mode] [-t table] [-l link] [file ...]\n", argv0);
+	fprintf(stderr, "usage: %s [-urvKh] [-m mode] [-t table] [-l link] [file ...]\n", argv0);
 	fprintf(stderr, "\nOptions:\n");
 	fprintf(stderr, "  -m mode    Output mode: plain (default), markdown, terminal\n");
 	fprintf(stderr, "  -t table   Table format: grid (default), markdown, tsv, simple\n");
 	fprintf(stderr, "  -l link    Link format: bracket (default), inline, text, footnote\n");
 	fprintf(stderr, "  -u         Use Unicode box-drawing characters for tables\n");
 	fprintf(stderr, "  -r         Emit Windows CRLF (\\r\\n) line endings\n");
+	fprintf(stderr, "  -K         Keep URL tracking parameters (disabled by default)\n");
 	fprintf(stderr, "  -v         Display version information\n");
 	fprintf(stderr, "  -h         Display this help message\n");
 	exit(1);
@@ -90,6 +91,9 @@ main(int argc, char *argv[])
 		break;
 	case 'r':
 		cfg.crlf = 1;
+		break;
+	case 'K':
+		cfg.keep_tracking = 1;
 		break;
 	case 'v':
 		puts("unipaste-" VERSION);

@@ -41,6 +41,7 @@ struct config {
 	int crlf;
 	int unicode_tables;
 	int preserve_empty_lines;
+	int keep_tracking; /* 0 = strip tracking params by default, 1 = preserve all */
 };
 
 /* Table cell structure */
@@ -130,6 +131,9 @@ void table_free(struct table *t);
 void table_add_row(struct table *t);
 void table_add_cell(struct table *t, const char *text, int is_header);
 void table_render(struct table *t, struct strbuf *out, const struct config *cfg);
+
+/* URL utilities */
+void url_strip_tracking_inplace(char *url);
 
 /* Core processing */
 int unipaste_process_stream(FILE *in, FILE *out, const struct config *cfg);
