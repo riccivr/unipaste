@@ -181,6 +181,12 @@ LANG_HTML='<pre><code class="lang-rust">fn main() {}</code></pre><pre class="hig
 test_contains "Code: lang-rust" "$LANG_HTML" '```rust' "-m markdown"
 test_contains "Code: highlight-source-python" "$LANG_HTML" '```python' "-m markdown"
 
+# Test 20: TSV Spreadsheet Grid Auto-Detection
+RAW_TSV=$(printf "Item\tQty\tPrice\nApple\t5\t\$1.50\nBanana\t12\t\$0.75\n")
+test_contains "TSV: Markdown table auto-conversion" "$RAW_TSV" "| Item   | Qty | Price |" "-m markdown"
+test_contains "TSV: Jira table auto-conversion" "$RAW_TSV" "|| Item || Qty || Price ||" "-m jira"
+test_contains "TSV: Unicode box table" "$RAW_TSV" "┌" "-u"
+
 echo ""
 echo "======================================"
 echo "Results: $PASSED passed, $FAILED failed"

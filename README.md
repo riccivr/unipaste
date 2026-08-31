@@ -9,10 +9,13 @@ When you copy formatted content from Slack, Microsoft Teams, Discord, Google Chr
 Features
 --------
 * Zero external runtime dependencies (standard C99 libc).
-* Formats HTML tables into ASCII grid borders (`+---+---+`), Unicode box drawing (`┌─┬─┐`), Markdown pipe tables (`| a | b |`), or tab-separated values.
+* Formats HTML tables and raw TSV grids into ASCII grid borders (`+---+---+`), Unicode box drawing (`┌─┬─┐`), Markdown pipe tables (`| a | b |`), Slack code blocks, Jira tables, or tab-separated values.
+* Strips telemetry & tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref_`, `si`, `rcm`) from links by default (`-K` to preserve).
+* Extracts LaTeX formulas (`$E = mc^2$`, `$$\int f(x)dx$$`) from KaTeX, MathJax, and Wikipedia MathML fragments.
+* Supports dialect outputs: **GitHub Markdown**, **Slack/Discord mrkdwn**, and **Jira/Confluence Wiki markup**.
 * Preserves nested lists, numbered lists, and task checkboxes (`[ ]`, `[x]`).
-* Keeps code block indentation, line breaks, and language tags (```` ```lang ````).
-* Formats links as bracketed URLs (`Text (https://...)`), inline Markdown (`[Text](https://...)`), plain text without URLs, or numbered footnotes.
+* Keeps code block indentation, line breaks, and language tags (```` ```lang ````, `{code:lang}`).
+* Formats links as bracketed URLs (`Text (https://...)`), inline Markdown (`[Text](https://...)`), Slack `<url|text>`, Jira `[text|url]`, or numbered footnotes.
 * Decodes named and numeric HTML entities.
 * Strips Windows clipboard metadata (`Version:0.9`, `<!--StartFragment-->`).
 * Optional compile-time HTML sanitizer plugin to strip unsafe tags and scripts before parsing.
@@ -98,13 +101,14 @@ Tests
 Usage
 -----
 ```
-unipaste [-urv] [-m mode] [-t table] [-l link] [file ...]
+unipaste [-urvKh] [-m mode] [-t table] [-l link] [file ...]
 ```
 
 ### Options
-* `-m mode`: Output mode: `plain` (default), `markdown`, `terminal`.
+* `-m mode`: Output mode: `plain` (default), `markdown`, `slack` (mrkdwn), `jira` (Confluence wiki), `terminal`.
 * `-t table`: Table style: `grid` (default), `markdown`, `tsv`, `simple`.
 * `-l link`: Link format: `bracket` (default for plain), `inline` (default for markdown), `text`, `footnote`.
+* `-K`: Keep URL tracking & telemetry parameters (`utm_*`, `fbclid`, `gclid`, etc.).
 * `-u`: Use UTF-8 Unicode box-drawing characters for tables.
 * `-r`: Emit Windows CRLF (`\r\n`) line endings.
 * `-v`: Print version information.

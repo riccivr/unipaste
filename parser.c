@@ -885,6 +885,72 @@ find_fragment_len(const char *src, size_t total_len)
 	return total_len;
 }
 
+/* Check if raw plain text input is a TSV (tab-separated) spreadsheet grid */
+static int
+is_tsv_grid(const char *s, size_t len)
+{
+	size_t tabs = 0;
+	size_t lines = 0;
+	size_t i;
+	int has_html_tag = 0;
+
+	for (i = 0; i < len; i++) {
+		if (s[i] == '\t')
+			tabs++;
+		else if (s[i] == '\n')
+			lines++;
+		else if (s[i] == '<' && i + 1 < len && (isalpha((unsigned char)s[i + 1]) || s[i + 1] == '/' || s[i + 1] == '!'))
+			has_html_tag = 1;
+	}
+
+	if (has_html_tag)
+		return 0;
+
+	return (tabs > 0 && (lines > 0 || tabs >= 1));
+}
+
+static int
+process_tsv_to_strbuf(const char *input, size_t len, struct strbuf *out, const struct config *cfg)
+{
+	struct table *t = table_create();
+	const char *p = input;
+	const char *end = input + len;
+	const char *cell_start;
+	char cell_buf[4096];
+	size_t cell_len;
+	int is_first_row = 1;
+
+	table_add_row(t);
+	while (p < end && *p) {
+		cell_start = p;
+		while (p < end && *p != '\t' && *p != '\n' && *p != '\r')
+			p++;
+
+		cell_len = (size_t)(p - cell_start);
+		if (cell_len >= sizeof(cell_buf))
+			cell_len = sizeof(cell_buf) - 1;
+		memcpy(cell_buf, cell_start, cell_len);
+		cell_buf[cell_len] = '\0';
+
+		table_add_cell(t, cell_buf, is_first_row);
+
+		if (p < end && *p == '\t') {
+			p++;
+		} else if (p < end && (*p == '\n' || *p == '\r')) {
+			if (*p == '\r' && p + 1 < end && p[1] == '\n')
+				p++;
+			p++;
+			is_first_row = 0;
+			if (p < end && *p)
+				table_add_row(t);
+		}
+	}
+
+	table_render(t, out, cfg);
+	table_free(t);
+	return 0;
+}
+
 /* Main parsing loop for HTML input buffer into strbuf */
 int
 unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, const struct config *cfg)
@@ -903,6 +969,11 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 
 	if (!input || !out || !cfg)
 		return 1;
+
+	/* Auto-detect raw TSV grids from Excel / Google Sheets */
+	if (is_tsv_grid(input, len)) {
+		return process_tsv_to_strbuf(input, len, out, cfg);
+	}
 
 	/* Plugin hook: sanitize input before formatting if compiled in */
 	sanitized = sanitize_html(input, len);

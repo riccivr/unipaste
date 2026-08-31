@@ -3,7 +3,7 @@
 unipaste \- convert HTML and rich clipboard data to plain text and markdown
 .SH SYNOPSIS
 .B unipaste
-.RB [ \-urv ]
+.RB [ \-urvKh ]
 .RB [ \-m
 .IR mode ]
 .RB [ \-t
@@ -13,9 +13,9 @@ unipaste \- convert HTML and rich clipboard data to plain text and markdown
 .RI [ file\ ... ]
 .SH DESCRIPTION
 .B unipaste
-reads rich text or HTML fragments from standard input or files and converts them
-into formatted plain text, Markdown, or terminal output. It formats tables,
-nested lists, code blocks, and links for plain-text editors and terminals.
+reads rich text, HTML fragments, or TSV data from standard input or files and converts them
+into formatted plain text, Markdown, Slack/Discord mrkdwn, Jira markup, or terminal output. It formats tables,
+nested lists, code blocks, math formulas ($LaTeX$), and links for plain-text editors and terminals.
 .SH OPTIONS
 .TP
 .BI \-m " mode"
@@ -27,6 +27,12 @@ Formatted plain text (default).
 .TP
 .B markdown
 GitHub-Flavored Markdown.
+.TP
+.B slack
+Slack and Discord mrkdwn dialect (tables in code blocks, <url|text> links).
+.TP
+.B jira
+Jira and Confluence wiki markup (|| headers ||, {code}, [text|url]).
 .TP
 .B terminal
 ANSI terminal escape sequences (bold headings, italic text).
@@ -65,6 +71,9 @@ Keep anchor text only, strip URLs.
 .B footnote
 Emit numbered references "[1]" and list footnotes at the bottom.
 .RE
+.TP
+.B \-K
+Keep URL tracking and telemetry parameters (stripping enabled by default).
 .TP
 .B \-u
 Use UTF-8 Unicode box-drawing characters for tables.
