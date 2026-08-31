@@ -331,6 +331,37 @@ render_simple(const struct table *t, struct strbuf *out)
 	}
 }
 
+/* Render Jira Table: || Header 1 || Header 2 ||\n| Cell 1 | Cell 2 | */
+static void
+render_jira(const struct table *t, struct strbuf *out)
+{
+	int r, c;
+	const char *txt;
+	int is_header_row;
+
+	for (r = 0; r < t->num_rows; r++) {
+		is_header_row = (r == 0 && (t->in_header || (t->cells[0][0] && t->cells[0][0]->is_header)));
+
+		if (is_header_row) {
+			for (c = 0; c < t->num_cols; c++) {
+				txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+				strbuf_puts(out, "|| ");
+				strbuf_puts(out, txt);
+				strbuf_puts(out, " ");
+			}
+			strbuf_puts(out, "||\n");
+		} else {
+			for (c = 0; c < t->num_cols; c++) {
+				txt = (t->cells[r][c] && t->cells[r][c]->text) ? t->cells[r][c]->text : "";
+				strbuf_puts(out, "| ");
+				strbuf_puts(out, txt);
+				strbuf_puts(out, " ");
+			}
+			strbuf_puts(out, "|\n");
+		}
+	}
+}
+
 void
 table_render(struct table *t, struct strbuf *out, const struct config *cfg)
 {
@@ -340,6 +371,18 @@ table_render(struct table *t, struct strbuf *out, const struct config *cfg)
 		return;
 
 	table_calculate_widths(t);
+
+	if (cfg->mode == MODE_JIRA) {
+		render_jira(t, out);
+		return;
+	}
+
+	if (cfg->mode == MODE_SLACK) {
+		strbuf_puts(out, "```\n");
+		render_grid(t, out, cfg->unicode_tables);
+		strbuf_puts(out, "```\n");
+		return;
+	}
 
 	style = cfg->table_style;
 	if (style == TABLE_STYLE_AUTO) {

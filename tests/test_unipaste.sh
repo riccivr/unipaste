@@ -151,6 +151,24 @@ test_contains "Tracking: Strip UTM but keep fragment" "$ANCHOR_URL" "[Repo Link]
 
 test_contains "Tracking: -K preserves tracking parameters" "$LINKEDIN_URL" "utm_source=share" "-m markdown -K"
 
+# Test 16: Slack / Discord mrkdwn mode
+SLACK_RICH='<h1>Meeting Notes</h1><p>Discuss <b>Quarterly</b> goals with <i>team</i>, <s>not solo</s>. See <a href="https://example.com">Website</a> and `inline` snippet.</p><pre><code class="language-python">print("hello")</code></pre>'
+test_contains "Slack: Heading bold" "$SLACK_RICH" "*Meeting Notes*" "-m slack"
+test_contains "Slack: Inline bold and italic" "$SLACK_RICH" "*Quarterly* goals with _team_, ~not solo~" "-m slack"
+test_contains "Slack: Link format <url|text>" "$SLACK_RICH" "<https://example.com|Website>" "-m slack"
+test_contains "Slack: Code block wrapped" "$SLACK_RICH" '```' "-m slack"
+test_contains "Slack: Table wrapped in code block" "$SLACK_TABLE" '```' "-m slack"
+test_contains "Slack: Table content inside code" "$SLACK_TABLE" '| Product  | Price  | Stock        |' "-m slack"
+
+# Test 17: Jira / Confluence markup mode
+JIRA_RICH='<h1>Sprint Goals</h1><p>Assign <b>Ticket A</b> to <i>dev</i> (<s>deprecated</s>). Monospace: <code>config.json</code>. Ref: <a href="https://jira.atlassian.com">Jira Home</a>.</p><pre><code class="language-js">console.log(1);</code></pre>'
+test_contains "Jira: Heading h1." "$JIRA_RICH" "h1. Sprint Goals" "-m jira"
+test_contains "Jira: Bold, italic, strike, monospace" "$JIRA_RICH" "*Ticket A* to _dev_ (-deprecated-). Monospace: {{config.json}}" "-m jira"
+test_contains "Jira: Link format [text|url]" "$JIRA_RICH" "[Jira Home|https://jira.atlassian.com]" "-m jira"
+test_contains "Jira: Code block {code:js}" "$JIRA_RICH" "{code:js}" "-m jira"
+test_contains "Jira: Table header ||" "$SLACK_TABLE" "|| Product || Price || Stock ||" "-m jira"
+test_contains "Jira: Table row |" "$SLACK_TABLE" '| Widget A | $10.00 | In Stock |' "-m jira"
+
 echo ""
 echo "======================================"
 echo "Results: $PASSED passed, $FAILED failed"

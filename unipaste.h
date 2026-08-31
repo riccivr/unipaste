@@ -14,6 +14,8 @@
 enum output_mode {
 	MODE_PLAIN = 0,
 	MODE_MARKDOWN,
+	MODE_SLACK,
+	MODE_JIRA,
 	MODE_TERMINAL
 };
 

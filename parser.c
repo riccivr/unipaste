@@ -328,6 +328,18 @@ flush_heading(struct parser_state *st)
 		strbuf_putc(&st->outbuf, ' ');
 		strbuf_puts(&st->outbuf, st->heading_text.data);
 		break;
+	case MODE_SLACK:
+		strbuf_putc(&st->outbuf, '*');
+		strbuf_puts(&st->outbuf, st->heading_text.data);
+		strbuf_putc(&st->outbuf, '*');
+		break;
+	case MODE_JIRA: {
+		char hbuf[16];
+		snprintf(hbuf, sizeof(hbuf), "h%d. ", st->heading_level);
+		strbuf_puts(&st->outbuf, hbuf);
+		strbuf_puts(&st->outbuf, st->heading_text.data);
+		break;
+	}
 	case MODE_TERMINAL:
 		strbuf_puts(&st->outbuf, "\033[1;36m"); /* Bold Cyan */
 		for (i = 0; i < st->heading_level; i++)
@@ -396,6 +408,32 @@ flush_link(struct parser_state *st)
 
 	if (st->current_href[0] == '\0' || lstyle == LINK_STYLE_TEXTONLY) {
 		strbuf_puts(&st->outbuf, txt);
+	} else if (st->cfg->mode == MODE_SLACK) {
+		/* Slack mrkdwn link: <url|text> or <url> */
+		if (strcmp(txt, st->current_href) == 0) {
+			strbuf_puts(&st->outbuf, "<");
+			strbuf_puts(&st->outbuf, st->current_href);
+			strbuf_puts(&st->outbuf, ">");
+		} else {
+			strbuf_puts(&st->outbuf, "<");
+			strbuf_puts(&st->outbuf, st->current_href);
+			strbuf_puts(&st->outbuf, "|");
+			strbuf_puts(&st->outbuf, txt);
+			strbuf_puts(&st->outbuf, ">");
+		}
+	} else if (st->cfg->mode == MODE_JIRA) {
+		/* Jira wiki link: [text|url] or [url] */
+		if (strcmp(txt, st->current_href) == 0) {
+			strbuf_puts(&st->outbuf, "[");
+			strbuf_puts(&st->outbuf, st->current_href);
+			strbuf_puts(&st->outbuf, "]");
+		} else {
+			strbuf_puts(&st->outbuf, "[");
+			strbuf_puts(&st->outbuf, txt);
+			strbuf_puts(&st->outbuf, "|");
+			strbuf_puts(&st->outbuf, st->current_href);
+			strbuf_puts(&st->outbuf, "]");
+		}
 	} else if (lstyle == LINK_STYLE_INLINE) {
 		/* [text](url) */
 		if (strcmp(txt, st->current_href) == 0) {
@@ -513,7 +551,7 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "pre")) {
 		st->pre_depth++;
 		emit_newlines(st, 2);
-		if (st->cfg->mode == MODE_MARKDOWN) {
+		if (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) {
 			if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
 			    extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
 				char *lang = strstr(attr_val, "language-");
@@ -521,18 +559,29 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 					lang += 9;
 				else
 					lang = attr_val;
-				strbuf_puts(&st->outbuf, "```");
-				strbuf_puts(&st->outbuf, lang);
-				strbuf_putc(&st->outbuf, '\n');
+				if (st->cfg->mode == MODE_JIRA) {
+					strbuf_puts(&st->outbuf, "{code:");
+					strbuf_puts(&st->outbuf, lang);
+					strbuf_puts(&st->outbuf, "}\n");
+				} else if (st->cfg->mode == MODE_SLACK) {
+					strbuf_puts(&st->outbuf, "```\n");
+				} else {
+					strbuf_puts(&st->outbuf, "```");
+					strbuf_puts(&st->outbuf, lang);
+					strbuf_putc(&st->outbuf, '\n');
+				}
 			} else {
-				strbuf_puts(&st->outbuf, "```\n");
+				if (st->cfg->mode == MODE_JIRA)
+					strbuf_puts(&st->outbuf, "{code}\n");
+				else
+					strbuf_puts(&st->outbuf, "```\n");
 			}
 			st->consecutive_newlines = 1;
 			st->at_line_start = 1;
 		}
 	} else if (tag_is(name, "code")) {
 		st->code_depth++;
-		if (st->pre_depth > 0 && st->cfg->mode == MODE_MARKDOWN) {
+		if (st->pre_depth > 0 && (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_JIRA)) {
 			/* If pre opened without language, check code tag */
 			if (st->outbuf.len >= 4 && strcmp(st->outbuf.data + st->outbuf.len - 4, "```\n") == 0) {
 				if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
@@ -549,10 +598,26 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 					strbuf_puts(&st->outbuf, lang);
 					strbuf_putc(&st->outbuf, '\n');
 				}
+			} else if (st->outbuf.len >= 7 && strcmp(st->outbuf.data + st->outbuf.len - 7, "{code}\n") == 0) {
+				if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
+				    extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
+					char *lang = strstr(attr_val, "language-");
+					if (lang)
+						lang += 9;
+					else
+						lang = attr_val;
+					st->outbuf.len -= 7;
+					st->outbuf.data[st->outbuf.len] = '\0';
+					strbuf_puts(&st->outbuf, "{code:");
+					strbuf_puts(&st->outbuf, lang);
+					strbuf_puts(&st->outbuf, "}\n");
+				}
 			}
 		} else if (!st->pre_depth) {
-			if (st->cfg->mode == MODE_MARKDOWN)
+			if (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_SLACK)
 				emit_text(st, "`");
+			else if (st->cfg->mode == MODE_JIRA)
+				emit_text(st, "{{");
 		}
 	} else if (tag_is(name, "a")) {
 		if (st->need_space && !st->at_line_start && !st->current_table) {
@@ -583,18 +648,26 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 		st->bold_depth++;
 		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 			emit_text(st, "**");
+		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+			emit_text(st, "*");
 		else if (st->cfg->mode == MODE_TERMINAL)
 			emit_text(st, "\033[1m");
 	} else if (tag_is(name, "i") || tag_is(name, "em")) {
 		st->italic_depth++;
 		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 			emit_text(st, "*");
+		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+			emit_text(st, "_");
 		else if (st->cfg->mode == MODE_TERMINAL)
 			emit_text(st, "\033[3m");
 	} else if (tag_is(name, "s") || tag_is(name, "del") || tag_is(name, "strike")) {
 		st->strike_depth++;
 		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 			emit_text(st, "~~");
+		else if (st->cfg->mode == MODE_SLACK && !st->current_table)
+			emit_text(st, "~");
+		else if (st->cfg->mode == MODE_JIRA && !st->current_table)
+			emit_text(st, "-");
 	} else if (tag_is(name, "input")) {
 		if (strstr(tag_str, "type=\"checkbox\"") || strstr(tag_str, "type='checkbox'")) {
 			if (strstr(tag_str, "checked"))
@@ -638,9 +711,14 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "pre")) {
 		if (st->pre_depth > 0) {
 			st->pre_depth--;
-			if (st->cfg->mode == MODE_MARKDOWN) {
+			if (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_SLACK) {
 				emit_newlines(st, 1);
 				strbuf_puts(&st->outbuf, "```\n");
+				st->consecutive_newlines = 1;
+				st->at_line_start = 1;
+			} else if (st->cfg->mode == MODE_JIRA) {
+				emit_newlines(st, 1);
+				strbuf_puts(&st->outbuf, "{code}\n");
 				st->consecutive_newlines = 1;
 				st->at_line_start = 1;
 			}
@@ -649,8 +727,12 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "code")) {
 		if (st->code_depth > 0) {
 			st->code_depth--;
-			if (!st->pre_depth && st->cfg->mode == MODE_MARKDOWN)
-				emit_text(st, "`");
+			if (!st->pre_depth) {
+				if (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_SLACK)
+					emit_text(st, "`");
+				else if (st->cfg->mode == MODE_JIRA)
+					emit_text(st, "}}");
+			}
 		}
 	} else if (tag_is(name, "a")) {
 		flush_link(st);
@@ -672,6 +754,8 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 			st->bold_depth--;
 			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 				emit_text(st, "**");
+			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+				emit_text(st, "*");
 			else if (st->cfg->mode == MODE_TERMINAL)
 				emit_text(st, "\033[0m");
 		}
@@ -680,6 +764,8 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 			st->italic_depth--;
 			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 				emit_text(st, "*");
+			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+				emit_text(st, "_");
 			else if (st->cfg->mode == MODE_TERMINAL)
 				emit_text(st, "\033[0m");
 		}
@@ -688,6 +774,10 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 			st->strike_depth--;
 			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
 				emit_text(st, "~~");
+			else if (st->cfg->mode == MODE_SLACK && !st->current_table)
+				emit_text(st, "~");
+			else if (st->cfg->mode == MODE_JIRA && !st->current_table)
+				emit_text(st, "-");
 		}
 	}
 }

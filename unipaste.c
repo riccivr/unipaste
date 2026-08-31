@@ -13,7 +13,7 @@ usage(void)
 {
 	fprintf(stderr, "usage: %s [-urvKh] [-m mode] [-t table] [-l link] [file ...]\n", argv0);
 	fprintf(stderr, "\nOptions:\n");
-	fprintf(stderr, "  -m mode    Output mode: plain (default), markdown, terminal\n");
+	fprintf(stderr, "  -m mode    Output mode: plain (default), markdown, slack, jira, terminal\n");
 	fprintf(stderr, "  -t table   Table format: grid (default), markdown, tsv, simple\n");
 	fprintf(stderr, "  -l link    Link format: bracket (default), inline, text, footnote\n");
 	fprintf(stderr, "  -u         Use Unicode box-drawing characters for tables\n");
@@ -49,6 +49,10 @@ main(int argc, char *argv[])
 			cfg.mode = MODE_PLAIN;
 		else if (strcmp(arg, "markdown") == 0 || strcmp(arg, "md") == 0)
 			cfg.mode = MODE_MARKDOWN;
+		else if (strcmp(arg, "slack") == 0 || strcmp(arg, "mrkdwn") == 0)
+			cfg.mode = MODE_SLACK;
+		else if (strcmp(arg, "jira") == 0 || strcmp(arg, "confluence") == 0)
+			cfg.mode = MODE_JIRA;
 		else if (strcmp(arg, "terminal") == 0 || strcmp(arg, "ansi") == 0)
 			cfg.mode = MODE_TERMINAL;
 		else {
