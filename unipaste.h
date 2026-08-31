@@ -106,6 +106,12 @@ struct parser_state {
 	int heading_level;
 	struct strbuf heading_text;
 	
+	/* Math tracking */
+	int in_math;
+	int math_display;
+	int in_annotation;
+	struct strbuf math_text;
+
 	/* Table tracking */
 	struct table *current_table;
 	

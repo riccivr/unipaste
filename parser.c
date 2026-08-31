@@ -269,6 +269,16 @@ emit_text(struct parser_state *st, const char *txt)
 	if (!txt || !*txt)
 		return;
 
+	if (st->in_annotation) {
+		strbuf_puts(&st->math_text, txt);
+		return;
+	}
+
+	if (st->in_math) {
+		/* Inside math container: ignore non-annotation visual text */
+		return;
+	}
+
 	if (st->current_table) {
 		if (st->need_space && st->textbuf.len > 0) {
 			strbuf_putc(&st->textbuf, ' ');
@@ -475,6 +485,45 @@ flush_link(struct parser_state *st)
 	strbuf_reset(&st->link_text);
 }
 
+/* Extract language from pre or code tag attributes */
+static const char *
+extract_code_language(const char *tag_str, char *buf, size_t buf_size)
+{
+	char attr[MAX_ATTR_VAL];
+	char *p;
+	size_t i;
+
+	if (extract_attribute(tag_str, "data-lang", attr, sizeof(attr)) ||
+	    extract_attribute(tag_str, "data-code-language", attr, sizeof(attr)) ||
+	    extract_attribute(tag_str, "lang", attr, sizeof(attr)) ||
+	    extract_attribute(tag_str, "class", attr, sizeof(attr))) {
+
+		p = strstr(attr, "language-");
+		if (p) {
+			p += 9;
+		} else if ((p = strstr(attr, "lang-"))) {
+			p += 5;
+		} else if ((p = strstr(attr, "highlight-source-"))) {
+			p += 17;
+		} else if ((p = strstr(attr, "brush:"))) {
+			p += 6;
+			while (isspace((unsigned char)*p))
+				p++;
+		} else {
+			p = attr;
+		}
+
+		i = 0;
+		while (*p && !isspace((unsigned char)*p) && *p != ';' && i < buf_size - 1) {
+			buf[i++] = *p++;
+		}
+		buf[i] = '\0';
+		if (buf[0] != '\0')
+			return buf;
+	}
+	return NULL;
+}
+
 /* Handle opening HTML tag */
 static void
 handle_open_tag(struct parser_state *st, const char *tag_str)
@@ -552,13 +601,8 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 		st->pre_depth++;
 		emit_newlines(st, 2);
 		if (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) {
-			if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
-			    extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
-				char *lang = strstr(attr_val, "language-");
-				if (lang)
-					lang += 9;
-				else
-					lang = attr_val;
+			const char *lang = extract_code_language(tag_str, attr_val, sizeof(attr_val));
+			if (lang && *lang) {
 				if (st->cfg->mode == MODE_JIRA) {
 					strbuf_puts(&st->outbuf, "{code:");
 					strbuf_puts(&st->outbuf, lang);
@@ -582,30 +626,15 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "code")) {
 		st->code_depth++;
 		if (st->pre_depth > 0 && (st->cfg->mode == MODE_MARKDOWN || st->cfg->mode == MODE_JIRA)) {
-			/* If pre opened without language, check code tag */
-			if (st->outbuf.len >= 4 && strcmp(st->outbuf.data + st->outbuf.len - 4, "```\n") == 0) {
-				if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
-				    extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
-					char *lang = strstr(attr_val, "language-");
-					if (lang)
-						lang += 9;
-					else
-						lang = attr_val;
-					/* Replace ```\n with ```lang\n */
+			const char *lang = extract_code_language(tag_str, attr_val, sizeof(attr_val));
+			if (lang && *lang) {
+				if (st->outbuf.len >= 4 && strcmp(st->outbuf.data + st->outbuf.len - 4, "```\n") == 0) {
 					st->outbuf.len -= 4;
 					st->outbuf.data[st->outbuf.len] = '\0';
 					strbuf_puts(&st->outbuf, "```");
 					strbuf_puts(&st->outbuf, lang);
 					strbuf_putc(&st->outbuf, '\n');
-				}
-			} else if (st->outbuf.len >= 7 && strcmp(st->outbuf.data + st->outbuf.len - 7, "{code}\n") == 0) {
-				if (extract_attribute(tag_str, "data-lang", attr_val, sizeof(attr_val)) ||
-				    extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
-					char *lang = strstr(attr_val, "language-");
-					if (lang)
-						lang += 9;
-					else
-						lang = attr_val;
+				} else if (st->outbuf.len >= 7 && strcmp(st->outbuf.data + st->outbuf.len - 7, "{code}\n") == 0) {
 					st->outbuf.len -= 7;
 					st->outbuf.data[st->outbuf.len] = '\0';
 					strbuf_puts(&st->outbuf, "{code:");
@@ -618,6 +647,34 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 				emit_text(st, "`");
 			else if (st->cfg->mode == MODE_JIRA)
 				emit_text(st, "{{");
+		}
+	} else if (tag_is(name, "math")) {
+		if (st->in_math == 0)
+			strbuf_reset(&st->math_text);
+		st->in_math++;
+		if (extract_attribute(tag_str, "display", attr_val, sizeof(attr_val)) &&
+		    strcmp(attr_val, "block") == 0) {
+			st->math_display = 1;
+		}
+	} else if (tag_is(name, "annotation")) {
+		if (extract_attribute(tag_str, "encoding", attr_val, sizeof(attr_val))) {
+			if (strstr(attr_val, "tex") || strstr(attr_val, "latex") || strstr(attr_val, "LaTeX") || strstr(attr_val, "TeX")) {
+				st->in_annotation = 1;
+				strbuf_reset(&st->math_text);
+			}
+		}
+	} else if (tag_is(name, "span")) {
+		if (extract_attribute(tag_str, "class", attr_val, sizeof(attr_val))) {
+			if (strstr(attr_val, "katex-display") || strstr(attr_val, "MathJax_Display")) {
+				if (st->in_math == 0)
+					strbuf_reset(&st->math_text);
+				st->in_math++;
+				st->math_display = 1;
+			} else if (strstr(attr_val, "katex") || strstr(attr_val, "MathJax") || strstr(attr_val, "mwe-math")) {
+				if (st->in_math == 0)
+					strbuf_reset(&st->math_text);
+				st->in_math++;
+			}
 		}
 	} else if (tag_is(name, "a")) {
 		if (st->need_space && !st->at_line_start && !st->current_table) {
@@ -779,6 +836,31 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 			else if (st->cfg->mode == MODE_JIRA && !st->current_table)
 				emit_text(st, "-");
 		}
+	} else if (tag_is(name, "annotation")) {
+		st->in_annotation = 0;
+	} else if (tag_is(name, "math") || (tag_is(name, "span") && st->in_math > 0)) {
+		if (st->in_math > 0) {
+			st->in_math--;
+			if (st->in_math == 0 && st->math_text.len > 0) {
+				if (st->math_display) {
+					emit_newlines(st, 2);
+					emit_indent(st);
+					strbuf_puts(&st->outbuf, "$$\n");
+					strbuf_puts(&st->outbuf, st->math_text.data);
+					strbuf_puts(&st->outbuf, "\n$$");
+					emit_newlines(st, 2);
+				} else {
+					if (st->need_space && !st->at_line_start)
+						strbuf_putc(&st->outbuf, ' ');
+					strbuf_putc(&st->outbuf, '$');
+					strbuf_puts(&st->outbuf, st->math_text.data);
+					strbuf_putc(&st->outbuf, '$');
+					st->need_space = 1;
+				}
+				strbuf_reset(&st->math_text);
+				st->math_display = 0;
+			}
+		}
 	}
 }
 
@@ -848,6 +930,7 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 	strbuf_init(&st.textbuf, 1024);
 	strbuf_init(&st.link_text, 256);
 	strbuf_init(&st.heading_text, 256);
+	strbuf_init(&st.math_text, 256);
 
 	/* Check for Windows CF_HTML fragments */
 	p = find_fragment_start(input);
@@ -903,8 +986,8 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 			continue;
 		}
 
-		/* Preformatted text: preserve whitespace verbatim */
-		if (st.pre_depth > 0) {
+		/* Preformatted text and Math annotations: preserve whitespace and characters verbatim */
+		if (st.pre_depth > 0 || st.in_annotation) {
 			if (*p == '&') {
 				consumed = decode_html_entity(p, entity_buf, sizeof(entity_buf));
 				if (consumed > 0) {
@@ -914,9 +997,13 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 				}
 			}
 			if (*p == '\n') {
-				strbuf_putc(&st.outbuf, '\n');
-				st.consecutive_newlines = 1;
-				st.at_line_start = 1;
+				if (st.in_annotation) {
+					strbuf_putc(&st.math_text, '\n');
+				} else {
+					strbuf_putc(&st.outbuf, '\n');
+					st.consecutive_newlines = 1;
+					st.at_line_start = 1;
+				}
 			} else {
 				char_buf[0] = *p;
 				char_buf[1] = '\0';
@@ -995,6 +1082,7 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 	strbuf_free(&st.textbuf);
 	strbuf_free(&st.link_text);
 	strbuf_free(&st.heading_text);
+	strbuf_free(&st.math_text);
 	free(alloc_input);
 
 	return 0;

@@ -169,6 +169,18 @@ test_contains "Jira: Code block {code:js}" "$JIRA_RICH" "{code:js}" "-m jira"
 test_contains "Jira: Table header ||" "$SLACK_TABLE" "|| Product || Price || Stock ||" "-m jira"
 test_contains "Jira: Table row |" "$SLACK_TABLE" '| Widget A | $10.00 | In Stock |' "-m jira"
 
+# Test 18: Math & KaTeX Extraction
+KATEX_INLINE='<p>Einstein says <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E = mc^2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="mord mathnormal">E</span></span></span></span> is relative.</p>'
+test_contains "Math: Inline KaTeX to formula" "$KATEX_INLINE" 'Einstein says $E = mc^2$ is relative.' "-m markdown"
+
+KATEX_BLOCK='<p>Formula:</p><span class="katex-display"><math display="block"><semantics><annotation encoding="application/x-tex">\int_0^\infty f(x)dx</annotation></semantics></math></span>'
+test_contains "Math: Display KaTeX to formula" "$KATEX_BLOCK" '\int_0^\infty f(x)dx' "-m markdown"
+
+# Test 19: Code block language detection variants
+LANG_HTML='<pre><code class="lang-rust">fn main() {}</code></pre><pre class="highlight-source-python"><code>import os</code></pre>'
+test_contains "Code: lang-rust" "$LANG_HTML" '```rust' "-m markdown"
+test_contains "Code: highlight-source-python" "$LANG_HTML" '```python' "-m markdown"
+
 echo ""
 echo "======================================"
 echo "Results: $PASSED passed, $FAILED failed"
