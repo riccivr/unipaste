@@ -4,11 +4,12 @@ unipaste
 
 When you copy formatted content from Slack, Microsoft Teams, Discord, Google Chrome, or other web apps into plain-text editors (Notepad, nano, vim), tables collapse into single lines, code blocks lose indentation, lists lose nesting, and links lose their target URLs. `unipaste` reads the rich HTML from standard input or files and formats tables, code blocks, lists, and links in plain text.
 
-[![Demo](assets/demo.gif)](https://asciinema.org/a/ghzy8NsCYziHVaTO)
+![unipaste Demo](assets/demo.gif)
 
 Features
 --------
 * Zero external runtime dependencies (standard C99 libc).
+* Built-in HTML sanitizer enabled by default (`-DSANITIZE_BUILTIN`) to strip unsafe scripts and tags with zero dependencies.
 * Formats HTML tables and raw TSV grids into ASCII grid borders (`+---+---+`), Unicode box drawing (`┌─┬─┐`), Markdown pipe tables (`| a | b |`), Slack code blocks, Jira tables, or tab-separated values.
 * Strips telemetry & tracking parameters (`utm_*`, `fbclid`, `gclid`, `ref_`, `si`, `rcm`) from links by default (`-K` to preserve).
 * Extracts LaTeX formulas (`$E = mc^2$`, `$$\int f(x)dx$$`) from KaTeX, MathJax, and Wikipedia MathML fragments.
@@ -18,7 +19,6 @@ Features
 * Formats links as bracketed URLs (`Text (https://...)`), inline Markdown (`[Text](https://...)`), Slack `<url|text>`, Jira `[text|url]`, or numbered footnotes.
 * Decodes named and numeric HTML entities.
 * Strips Windows clipboard metadata (`Version:0.9`, `<!--StartFragment-->`).
-* Optional compile-time HTML sanitizer plugin to strip unsafe tags and scripts before parsing.
 
 Build and Install
 -----------------
@@ -49,7 +49,7 @@ yay -S unipaste
 
 #### Debian and Ubuntu (.deb)
 ```sh
-sudo dpkg -i unipaste_1.1.0_amd64.deb
+sudo dpkg -i unipaste_1.2.0_amd64.deb
 ```
 
 #### Windows (Chocolatey)

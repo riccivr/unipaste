@@ -1,6 +1,6 @@
-# Maintainer: riccivr <riccivr@users.noreply.github.com>
+# Maintainer: Ricardo Veronese Ricci <ricci.vr@gmail.com>
 pkgname=unipaste
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 pkgdesc="Suckless zero-dependency POSIX universal rich text and clipboard converter"
 arch=('x86_64' 'aarch64' 'armv7h' 'i686')

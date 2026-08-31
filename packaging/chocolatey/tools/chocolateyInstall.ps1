@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop';
 $packageName = 'unipaste'
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
-$url64 = 'https://github.com/riccivr/unipaste/releases/download/v1.1.0/unipaste-v1.1.0-windows-x64.zip'
+$url64 = 'https://github.com/riccivr/unipaste/releases/download/v1.2.0/unipaste-v1.2.0-windows-x64.zip'
 $checksum64 = '7eab52e4807323707876e543f7b071fa7fac0da85098606a5f8e4862ccbfd638'
 
 $packageArgs = @{

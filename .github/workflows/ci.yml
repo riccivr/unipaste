@@ -69,7 +69,7 @@ jobs:
       - name: Compile unipaste.exe (Default Sanitizer)
         shell: bash
         run: |
-          gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
+          gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.2.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
 
       - name: Verify CLI on Windows
         shell: pwsh

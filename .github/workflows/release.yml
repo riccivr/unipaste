@@ -36,9 +36,9 @@ jobs:
 
       - name: Build Windows Binaries & Zip (Default Sanitizer & No-Sanitizer)
         run: |
-          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
+          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.2.0\" -DSANITIZE_BUILTIN unipaste.c parser.c table.c entity.c strbuf.c plugin_builtin.c -o unipaste.exe -s
           zip unipaste-windows-x64.zip unipaste.exe unipaste.1 README.md LICENSE
-          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.1.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste-nosanitize.exe -s
+          x86_64-w64-mingw32-gcc -std=c99 -pedantic -Wall -Wextra -Os -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -DVERSION=\"1.2.0\" unipaste.c parser.c table.c entity.c strbuf.c plugin_none.c -o unipaste-nosanitize.exe -s
           zip unipaste-windows-x64-nosanitize.zip unipaste-nosanitize.exe unipaste.1 README.md LICENSE
 
       - name: Publish Assets to GitHub Release
