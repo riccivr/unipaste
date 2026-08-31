@@ -141,7 +141,3 @@ Convert links to numbered footnotes at the end of the text:
 ```sh
 unipaste -l footnote article.html
 ```
-
-License
--------
-MIT License. See LICENSE file for details.
