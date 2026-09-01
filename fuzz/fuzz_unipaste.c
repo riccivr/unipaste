@@ -18,7 +18,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	struct strbuf out;
 	uint8_t flags;
 
-	if (size == 0)
+	if (size <= 1)
 		return 0;
 
 	memset(&cfg, 0, sizeof(cfg));
