@@ -25,11 +25,12 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 	/* First byte selects config permutation */
 	flags = data[0];
-	cfg.mode = (enum output_mode)(flags % 3);
-	cfg.table_style = (enum table_style)((flags >> 2) % 5);
-	cfg.link_style = (enum link_style)((flags >> 4) % 5);
+	cfg.mode = (enum output_mode)(flags % 5);
+	cfg.table_style = (enum table_style)((flags >> 3) % 5);
+	cfg.link_style = (enum link_style)((flags >> 5) % 5);
 	cfg.crlf = (flags >> 6) & 1;
 	cfg.unicode_tables = (flags >> 7) & 1;
+	cfg.keep_tracking = (flags >> 2) & 1;
 
 	strbuf_init(&out, size * 2 + 128);
 

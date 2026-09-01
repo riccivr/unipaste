@@ -25,19 +25,6 @@ xstrdup(const char *s)
 	return res;
 }
 
-/* Case-insensitive string comparison helper */
-static int
-ci_equal(const char *a, const char *b)
-{
-	while (*a && *b) {
-		if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
-			return 0;
-		a++;
-		b++;
-	}
-	return (*a == '\0' && *b == '\0');
-}
-
 /* Case-insensitive bounded prefix comparison helper */
 static int
 ci_n_equal(const char *a, const char *b, size_t n)
@@ -57,7 +44,22 @@ ci_n_equal(const char *a, const char *b, size_t n)
 static int
 tag_is(const char *tag, const char *name)
 {
-	return ci_equal(tag, name);
+	size_t len;
+	const char *p;
+
+	if (!tag || !name)
+		return 0;
+	while (isspace((unsigned char)*tag))
+		tag++;
+	if (*tag == '/')
+		tag++;
+	p = tag;
+	while (*p && !isspace((unsigned char)*p) && *p != '/' && *p != '>')
+		p++;
+	len = (size_t)(p - tag);
+	if (len != strlen(name))
+		return 0;
+	return ci_n_equal(tag, name, len);
 }
 
 /* Extract attribute value from tag string (e.g. href="...", class='...') */
@@ -224,7 +226,7 @@ emit_newlines(struct parser_state *st, int count)
 {
 	int needed, i;
 
-	if (st->current_table)
+	if (st->table_depth > 0)
 		return;
 
 	needed = count - st->consecutive_newlines;
@@ -245,7 +247,7 @@ emit_indent(struct parser_state *st)
 {
 	int i;
 
-	if (st->current_table || !st->at_line_start)
+	if (st->table_depth > 0 || !st->at_line_start)
 		return;
 
 	/* Blockquotes */
@@ -279,21 +281,21 @@ emit_text(struct parser_state *st, const char *txt)
 		return;
 	}
 
-	if (st->current_table) {
-		if (st->need_space && st->textbuf.len > 0) {
-			strbuf_putc(&st->textbuf, ' ');
-		}
-		st->need_space = 0;
-		strbuf_puts(&st->textbuf, txt);
-		return;
-	}
-
 	if (st->in_link) {
 		if (st->need_space && st->link_text.len > 0) {
 			strbuf_putc(&st->link_text, ' ');
 		}
 		st->need_space = 0;
 		strbuf_puts(&st->link_text, txt);
+		return;
+	}
+
+	if (st->table_depth > 0) {
+		if (st->need_space && st->textbuf.len > 0) {
+			strbuf_putc(&st->textbuf, ' ');
+		}
+		st->need_space = 0;
+		strbuf_puts(&st->textbuf, txt);
 		return;
 	}
 
@@ -394,12 +396,14 @@ flush_link(struct parser_state *st)
 	char *txt;
 	char fn_buf[16];
 	enum link_style lstyle;
+	struct strbuf *target;
 
 	if (!st->in_link)
 		return;
 
 	txt = st->link_text.data;
 	lstyle = st->cfg->link_style;
+	target = (st->table_depth > 0) ? &st->textbuf : &st->outbuf;
 
 	if (lstyle == LINK_STYLE_AUTO) {
 		if (st->cfg->mode == MODE_MARKDOWN)
@@ -408,74 +412,81 @@ flush_link(struct parser_state *st)
 			lstyle = LINK_STYLE_BRACKET;
 	}
 
-	if (st->at_line_start)
-		emit_indent(st);
+	if (st->table_depth == 0) {
+		if (st->at_line_start)
+			emit_indent(st);
 
-	if (st->need_space && !st->at_line_start) {
-		strbuf_putc(&st->outbuf, ' ');
-		st->need_space = 0;
+		if (st->need_space && !st->at_line_start) {
+			strbuf_putc(&st->outbuf, ' ');
+			st->need_space = 0;
+		}
+	} else {
+		if (st->need_space && st->textbuf.len > 0) {
+			strbuf_putc(&st->textbuf, ' ');
+			st->need_space = 0;
+		}
 	}
 
 	if (st->current_href[0] == '\0' || lstyle == LINK_STYLE_TEXTONLY) {
-		strbuf_puts(&st->outbuf, txt);
+		strbuf_puts(target, txt);
 	} else if (st->cfg->mode == MODE_SLACK) {
 		/* Slack mrkdwn link: <url|text> or <url> */
 		if (strcmp(txt, st->current_href) == 0) {
-			strbuf_puts(&st->outbuf, "<");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, ">");
+			strbuf_puts(target, "<");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, ">");
 		} else {
-			strbuf_puts(&st->outbuf, "<");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, "|");
-			strbuf_puts(&st->outbuf, txt);
-			strbuf_puts(&st->outbuf, ">");
+			strbuf_puts(target, "<");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, "|");
+			strbuf_puts(target, txt);
+			strbuf_puts(target, ">");
 		}
 	} else if (st->cfg->mode == MODE_JIRA) {
 		/* Jira wiki link: [text|url] or [url] */
 		if (strcmp(txt, st->current_href) == 0) {
-			strbuf_puts(&st->outbuf, "[");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, "]");
+			strbuf_puts(target, "[");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, "]");
 		} else {
-			strbuf_puts(&st->outbuf, "[");
-			strbuf_puts(&st->outbuf, txt);
-			strbuf_puts(&st->outbuf, "|");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, "]");
+			strbuf_puts(target, "[");
+			strbuf_puts(target, txt);
+			strbuf_puts(target, "|");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, "]");
 		}
 	} else if (lstyle == LINK_STYLE_INLINE) {
 		/* [text](url) */
 		if (strcmp(txt, st->current_href) == 0) {
-			strbuf_puts(&st->outbuf, "<");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, ">");
+			strbuf_puts(target, "<");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, ">");
 		} else {
-			strbuf_puts(&st->outbuf, "[");
-			strbuf_puts(&st->outbuf, txt);
-			strbuf_puts(&st->outbuf, "](");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, ")");
+			strbuf_puts(target, "[");
+			strbuf_puts(target, txt);
+			strbuf_puts(target, "](");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, ")");
 		}
 	} else if (lstyle == LINK_STYLE_FOOTNOTE) {
 		if (st->num_footnotes < 255) {
 			st->footnotes[st->num_footnotes] = xstrdup(st->current_href);
 			st->num_footnotes++;
-			strbuf_puts(&st->outbuf, txt);
+			strbuf_puts(target, txt);
 			snprintf(fn_buf, sizeof(fn_buf), " [%d]", st->num_footnotes);
-			strbuf_puts(&st->outbuf, fn_buf);
+			strbuf_puts(target, fn_buf);
 		} else {
-			strbuf_puts(&st->outbuf, txt);
+			strbuf_puts(target, txt);
 		}
 	} else {
 		/* LINK_STYLE_BRACKET: text (url) */
 		if (strcmp(txt, st->current_href) == 0) {
-			strbuf_puts(&st->outbuf, st->current_href);
+			strbuf_puts(target, st->current_href);
 		} else {
-			strbuf_puts(&st->outbuf, txt);
-			strbuf_puts(&st->outbuf, " (");
-			strbuf_puts(&st->outbuf, st->current_href);
-			strbuf_puts(&st->outbuf, ")");
+			strbuf_puts(target, txt);
+			strbuf_puts(target, " (");
+			strbuf_puts(target, st->current_href);
+			strbuf_puts(target, ")");
 		}
 	}
 
@@ -543,7 +554,7 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 	    tag_is(name, "footer")) {
 		emit_newlines(st, 2);
 	} else if (tag_is(name, "br")) {
-		if (st->current_table) {
+		if (st->table_depth > 0) {
 			strbuf_puts(&st->textbuf, " ");
 		} else {
 			strbuf_putc(&st->outbuf, '\n');
@@ -676,8 +687,38 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 				st->in_math++;
 			}
 		}
+	} else if (tag_is(name, "img")) {
+		char alt_val[MAX_ATTR_VAL];
+		char src_val[MAX_ATTR_VAL];
+		int has_alt = extract_attribute(tag_str, "alt", alt_val, sizeof(alt_val));
+		int has_src = extract_attribute(tag_str, "src", src_val, sizeof(src_val));
+		if (has_alt && alt_val[0]) {
+			if (st->cfg->mode == MODE_MARKDOWN) {
+				if (has_src && src_val[0]) {
+					emit_text(st, "![");
+					emit_text(st, alt_val);
+					emit_text(st, "](");
+					emit_text(st, src_val);
+					emit_text(st, ")");
+				} else {
+					emit_text(st, "[Image: ");
+					emit_text(st, alt_val);
+					emit_text(st, "]");
+				}
+			} else {
+				emit_text(st, "[Image: ");
+				emit_text(st, alt_val);
+				emit_text(st, "]");
+			}
+		}
+	} else if (tag_is(name, "u") || tag_is(name, "ins")) {
+		st->underline_depth++;
+		if (st->cfg->mode == MODE_TERMINAL)
+			emit_text(st, "\033[4m");
+		else if (st->cfg->mode == MODE_JIRA && !st->table_depth)
+			emit_text(st, "+");
 	} else if (tag_is(name, "a")) {
-		if (st->need_space && !st->at_line_start && !st->current_table) {
+		if (st->need_space && !st->at_line_start && !st->table_depth) {
 			strbuf_putc(&st->outbuf, ' ');
 			st->need_space = 0;
 		}
@@ -688,42 +729,40 @@ handle_open_tag(struct parser_state *st, const char *tag_str)
 			strbuf_reset(&st->link_text);
 		}
 	} else if (tag_is(name, "table")) {
-		if (st->current_table) {
-			table_render(st->current_table, &st->outbuf, st->cfg);
-			table_free(st->current_table);
-			st->current_table = NULL;
+		if (st->table_depth < MAX_TABLE_DEPTH) {
+			st->table_stack[st->table_depth++] = table_create();
+			if (st->table_depth == 1)
+				emit_newlines(st, 2);
 		}
-		emit_newlines(st, 2);
-		st->current_table = table_create();
 	} else if (tag_is(name, "tr")) {
-		if (st->current_table)
-			table_add_row(st->current_table);
+		if (st->table_depth > 0)
+			table_add_row(st->table_stack[st->table_depth - 1]);
 	} else if (tag_is(name, "th") || tag_is(name, "td")) {
 		strbuf_reset(&st->textbuf);
 		st->need_space = 0;
 	} else if (tag_is(name, "b") || tag_is(name, "strong")) {
 		st->bold_depth++;
-		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+		if (st->cfg->mode == MODE_MARKDOWN)
 			emit_text(st, "**");
-		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->table_depth)
 			emit_text(st, "*");
 		else if (st->cfg->mode == MODE_TERMINAL)
 			emit_text(st, "\033[1m");
 	} else if (tag_is(name, "i") || tag_is(name, "em")) {
 		st->italic_depth++;
-		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+		if (st->cfg->mode == MODE_MARKDOWN)
 			emit_text(st, "*");
-		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+		else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->table_depth)
 			emit_text(st, "_");
 		else if (st->cfg->mode == MODE_TERMINAL)
 			emit_text(st, "\033[3m");
 	} else if (tag_is(name, "s") || tag_is(name, "del") || tag_is(name, "strike")) {
 		st->strike_depth++;
-		if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+		if (st->cfg->mode == MODE_MARKDOWN)
 			emit_text(st, "~~");
-		else if (st->cfg->mode == MODE_SLACK && !st->current_table)
+		else if (st->cfg->mode == MODE_SLACK && !st->table_depth)
 			emit_text(st, "~");
-		else if (st->cfg->mode == MODE_JIRA && !st->current_table)
+		else if (st->cfg->mode == MODE_JIRA && !st->table_depth)
 			emit_text(st, "-");
 	} else if (tag_is(name, "input")) {
 		if (strstr(tag_str, "type=\"checkbox\"") || strstr(tag_str, "type='checkbox'")) {
@@ -743,6 +782,7 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 	char name[MAX_TAG_NAME];
 	const char *p = tag_str;
 	size_t i = 0;
+	size_t k;
 
 	while (*p && !isspace((unsigned char)*p) && *p != '>' && i < MAX_TAG_NAME - 1)
 		name[i++] = *p++;
@@ -791,27 +831,57 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 					emit_text(st, "}}");
 			}
 		}
+	} else if (tag_is(name, "u") || tag_is(name, "ins")) {
+		if (st->underline_depth > 0) {
+			st->underline_depth--;
+			if (st->cfg->mode == MODE_TERMINAL)
+				emit_text(st, "\033[0m");
+			else if (st->cfg->mode == MODE_JIRA && !st->table_depth)
+				emit_text(st, "+");
+		}
 	} else if (tag_is(name, "a")) {
 		flush_link(st);
 	} else if (tag_is(name, "table")) {
-		if (st->current_table) {
-			table_render(st->current_table, &st->outbuf, st->cfg);
-			table_free(st->current_table);
-			st->current_table = NULL;
+		if (st->table_depth > 1) {
+			struct strbuf inner_buf;
+			strbuf_init(&inner_buf, 512);
+			table_render(st->table_stack[st->table_depth - 1], &inner_buf, st->cfg);
+			table_free(st->table_stack[st->table_depth - 1]);
+			st->table_stack[st->table_depth - 1] = NULL;
+			st->table_depth--;
+
+			for (k = 0; k < inner_buf.len; k++) {
+				if (inner_buf.data[k] == '\n' || inner_buf.data[k] == '\r') {
+					if (st->textbuf.len > 0 && st->textbuf.data[st->textbuf.len - 1] != ' ')
+						strbuf_putc(&st->textbuf, ' ');
+				} else {
+					strbuf_putc(&st->textbuf, inner_buf.data[k]);
+				}
+			}
+			strbuf_free(&inner_buf);
+		} else if (st->table_depth == 1) {
+			if (st->textbuf.len > 0) {
+				table_add_cell(st->table_stack[0], st->textbuf.data, 0);
+				strbuf_reset(&st->textbuf);
+			}
+			table_render(st->table_stack[0], &st->outbuf, st->cfg);
+			table_free(st->table_stack[0]);
+			st->table_stack[0] = NULL;
+			st->table_depth = 0;
 			st->consecutive_newlines = 1;
 			emit_newlines(st, 2);
 		}
 	} else if (tag_is(name, "th") || tag_is(name, "td")) {
-		if (st->current_table)
-			table_add_cell(st->current_table, st->textbuf.data, tag_is(name, "th"));
+		if (st->table_depth > 0)
+			table_add_cell(st->table_stack[st->table_depth - 1], st->textbuf.data, tag_is(name, "th"));
 		strbuf_reset(&st->textbuf);
 		st->need_space = 0;
 	} else if (tag_is(name, "b") || tag_is(name, "strong")) {
 		if (st->bold_depth > 0) {
 			st->bold_depth--;
-			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+			if (st->cfg->mode == MODE_MARKDOWN)
 				emit_text(st, "**");
-			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->table_depth)
 				emit_text(st, "*");
 			else if (st->cfg->mode == MODE_TERMINAL)
 				emit_text(st, "\033[0m");
@@ -819,9 +889,9 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "i") || tag_is(name, "em")) {
 		if (st->italic_depth > 0) {
 			st->italic_depth--;
-			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+			if (st->cfg->mode == MODE_MARKDOWN)
 				emit_text(st, "*");
-			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->current_table)
+			else if ((st->cfg->mode == MODE_SLACK || st->cfg->mode == MODE_JIRA) && !st->table_depth)
 				emit_text(st, "_");
 			else if (st->cfg->mode == MODE_TERMINAL)
 				emit_text(st, "\033[0m");
@@ -829,11 +899,11 @@ handle_close_tag(struct parser_state *st, const char *tag_str)
 	} else if (tag_is(name, "s") || tag_is(name, "del") || tag_is(name, "strike")) {
 		if (st->strike_depth > 0) {
 			st->strike_depth--;
-			if (st->cfg->mode == MODE_MARKDOWN && !st->current_table)
+			if (st->cfg->mode == MODE_MARKDOWN)
 				emit_text(st, "~~");
-			else if (st->cfg->mode == MODE_SLACK && !st->current_table)
+			else if (st->cfg->mode == MODE_SLACK && !st->table_depth)
 				emit_text(st, "~");
-			else if (st->cfg->mode == MODE_JIRA && !st->current_table)
+			else if (st->cfg->mode == MODE_JIRA && !st->table_depth)
 				emit_text(st, "-");
 		}
 	} else if (tag_is(name, "annotation")) {
@@ -893,20 +963,45 @@ is_tsv_grid(const char *s, size_t len)
 	size_t lines = 0;
 	size_t i;
 	int has_html_tag = 0;
+	size_t cur_row_tabs = 0;
+	size_t first_row_tabs = 0;
+	int rows_with_tabs = 0;
 
 	for (i = 0; i < len; i++) {
-		if (s[i] == '\t')
+		if (s[i] == '\t') {
 			tabs++;
-		else if (s[i] == '\n')
+			cur_row_tabs++;
+		} else if (s[i] == '\n') {
 			lines++;
-		else if (s[i] == '<' && i + 1 < len && (isalpha((unsigned char)s[i + 1]) || s[i + 1] == '/' || s[i + 1] == '!'))
+			if (cur_row_tabs > 0) {
+				rows_with_tabs++;
+				if (first_row_tabs == 0)
+					first_row_tabs = cur_row_tabs;
+			}
+			cur_row_tabs = 0;
+		} else if (s[i] == '<' && i + 1 < len && (isalpha((unsigned char)s[i + 1]) || s[i + 1] == '/' || s[i + 1] == '!')) {
 			has_html_tag = 1;
+		}
 	}
 
-	if (has_html_tag)
+	if (cur_row_tabs > 0) {
+		rows_with_tabs++;
+		if (first_row_tabs == 0)
+			first_row_tabs = cur_row_tabs;
+	}
+
+	if (has_html_tag || tabs == 0)
 		return 0;
 
-	return (tabs > 0 && (lines > 0 || tabs >= 1));
+	/* Multi-row spreadsheet copied from Excel/Sheets: at least 2 rows with tabs */
+	if (rows_with_tabs >= 2)
+		return 1;
+
+	/* Single row: require at least 2 tabs (3 columns) and newline or clear length to avoid single indented line */
+	if (rows_with_tabs == 1 && first_row_tabs >= 2 && lines > 0)
+		return 1;
+
+	return 0;
 }
 
 static int
@@ -1039,15 +1134,18 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 			in_tag = 0;
 
 			/* Check script/style boundary */
-			if (tag_is(st.tagbuf.data, "script") || tag_is(st.tagbuf.data, "style") || tag_is(st.tagbuf.data, "head")) {
-				in_script_or_style = 1;
-			} else if (tag_is(st.tagbuf.data, "/script") || tag_is(st.tagbuf.data, "/style") || tag_is(st.tagbuf.data, "/head")) {
-				in_script_or_style = 0;
-			} else if (!in_script_or_style) {
-				if (st.tagbuf.data[0] == '/')
+			if (st.tagbuf.data[0] == '/') {
+				if (tag_is(st.tagbuf.data + 1, "script") || tag_is(st.tagbuf.data + 1, "style") || tag_is(st.tagbuf.data + 1, "head")) {
+					in_script_or_style = 0;
+				} else if (!in_script_or_style) {
 					handle_close_tag(&st, st.tagbuf.data + 1);
-				else
+				}
+			} else {
+				if (tag_is(st.tagbuf.data, "script") || tag_is(st.tagbuf.data, "style") || tag_is(st.tagbuf.data, "head")) {
+					in_script_or_style = 1;
+				} else if (!in_script_or_style) {
 					handle_open_tag(&st, st.tagbuf.data);
+				}
 			}
 			continue;
 		}
@@ -1124,11 +1222,16 @@ unipaste_process_to_strbuf(const char *input, size_t len, struct strbuf *out, co
 		}
 	}
 
-	/* Flush any unclosed table */
-	if (st.current_table) {
-		table_render(st.current_table, &st.outbuf, st.cfg);
-		table_free(st.current_table);
-		st.current_table = NULL;
+	/* Flush any unclosed tables */
+	while (st.table_depth > 0) {
+		if (st.textbuf.len > 0) {
+			table_add_cell(st.table_stack[st.table_depth - 1], st.textbuf.data, 0);
+			strbuf_reset(&st.textbuf);
+		}
+		table_render(st.table_stack[st.table_depth - 1], &st.outbuf, st.cfg);
+		table_free(st.table_stack[st.table_depth - 1]);
+		st.table_stack[st.table_depth - 1] = NULL;
+		st.table_depth--;
 	}
 
 	/* Ensure trailing newline */

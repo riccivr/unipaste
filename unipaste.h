@@ -113,7 +113,9 @@ struct parser_state {
 	struct strbuf math_text;
 
 	/* Table tracking */
-	struct table *current_table;
+#define MAX_TABLE_DEPTH 8
+	struct table *table_stack[MAX_TABLE_DEPTH];
+	int table_depth;
 	
 	/* Paragraph / spacing tracking */
 	int consecutive_newlines;

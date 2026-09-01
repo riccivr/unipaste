@@ -1,10 +1,10 @@
 /* See LICENSE file for copyright and license details. */
 /*
- * Default no-op plugin: sanitize_html() returns NULL, meaning the
+ * No-op plugin: sanitize_html() returns NULL, meaning the
  * input passes through to the formatting engine unchanged.
  *
- * This file is compiled when no SANITIZE= flag is specified,
- * preserving the zero-dependency suckless default build.
+ * This file is compiled when SANITIZE=none is specified,
+ * providing zero-overhead raw HTML stream processing.
  */
 #include "plugin.h"
 

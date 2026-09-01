@@ -24,21 +24,114 @@ xstrdup(const char *s)
 	return res;
 }
 
+/* Decode one UTF-8 codepoint and advance pointer */
+static unsigned long
+utf8_next_codepoint(const char **src)
+{
+	const unsigned char *p = (const unsigned char *)*src;
+	unsigned long cp = 0;
+	int len = 0, i;
+
+	if (!*p)
+		return 0;
+
+	if (*p < 0x80) {
+		cp = *p;
+		len = 1;
+	} else if ((*p & 0xE0) == 0xC0) {
+		cp = *p & 0x1F;
+		len = 2;
+	} else if ((*p & 0xF0) == 0xE0) {
+		cp = *p & 0x0F;
+		len = 3;
+	} else if ((*p & 0xF8) == 0xF0) {
+		cp = *p & 0x07;
+		len = 4;
+	} else {
+		*src += 1;
+		return 0xFFFD;
+	}
+
+	p++;
+	for (i = 1; i < len; i++) {
+		if ((*p & 0xC0) != 0x80) {
+			*src += i;
+			return 0xFFFD;
+		}
+		cp = (cp << 6) | (*p & 0x3F);
+		p++;
+	}
+
+	*src = (const char *)p;
+	return cp;
+}
+
+/* Return terminal display width for a Unicode codepoint (0, 1, or 2 columns) */
+static int
+codepoint_width(unsigned long cp)
+{
+	/* Control characters and format controls (0 width) */
+	if (cp < 0x20 || (cp >= 0x7F && cp < 0xA0) || cp == 0x00AD)
+		return 0;
+
+	/* Combining marks and non-spacing characters (0 width) */
+	if ((cp >= 0x0300 && cp <= 0x036F) ||
+	    (cp >= 0x0483 && cp <= 0x0489) ||
+	    (cp >= 0x0591 && cp <= 0x05BD) || cp == 0x05BF ||
+	    (cp >= 0x05C1 && cp <= 0x05C2) || (cp >= 0x05C4 && cp <= 0x05C5) || cp == 0x05C7 ||
+	    (cp >= 0x0610 && cp <= 0x061A) || (cp >= 0x064B && cp <= 0x065F) || cp == 0x0670 ||
+	    (cp >= 0x06D6 && cp <= 0x06DC) || (cp >= 0x06DF && cp <= 0x06E4) ||
+	    (cp >= 0x06E7 && cp <= 0x06E8) || (cp >= 0x06EA && cp <= 0x06ED) ||
+	    cp == 0x0711 ||
+	    (cp >= 0x0730 && cp <= 0x074A) ||
+	    (cp >= 0x0901 && cp <= 0x0903) || (cp >= 0x093C && cp <= 0x094F) ||
+	    (cp >= 0x1AB0 && cp <= 0x1AFF) ||
+	    (cp >= 0x1DC0 && cp <= 0x1DFF) ||
+	    (cp >= 0x200B && cp <= 0x200F) ||
+	    (cp >= 0x2028 && cp <= 0x202E) ||
+	    (cp >= 0x2060 && cp <= 0x206F) ||
+	    (cp >= 0x20D0 && cp <= 0x20FF) ||
+	    (cp >= 0xFE00 && cp <= 0xFE0F) ||
+	    (cp >= 0xFE20 && cp <= 0xFE2F) ||
+	    cp == 0xFEFF ||
+	    (cp >= 0xE0100 && cp <= 0xE01EF)) {
+		return 0;
+	}
+
+	/* East Asian Wide / Fullwidth characters and Emojis (2 columns) */
+	if ((cp >= 0x1100 && cp <= 0x115F) ||
+	    (cp == 0x2329 || cp == 0x232A) ||
+	    (cp >= 0x2E80 && cp <= 0x303E) ||
+	    (cp >= 0x3040 && cp <= 0xA4CF) ||
+	    (cp >= 0xAC00 && cp <= 0xD7A3) ||
+	    (cp >= 0xF900 && cp <= 0xFAFF) ||
+	    (cp >= 0xFE10 && cp <= 0xFE19) ||
+	    (cp >= 0xFE30 && cp <= 0xFE6F) ||
+	    (cp >= 0xFF01 && cp <= 0xFF60) ||
+	    (cp >= 0xFFE0 && cp <= 0xFFE6) ||
+	    (cp >= 0x1F300 && cp <= 0x1F64F) ||
+	    (cp >= 0x1F680 && cp <= 0x1F6FF) ||
+	    (cp >= 0x1F900 && cp <= 0x1F9FF) ||
+	    (cp >= 0x20000 && cp <= 0x3FFFD)) {
+		return 2;
+	}
+
+	return 1;
+}
+
 /* Calculate display column width of UTF-8 string */
 static size_t
 utf8_width(const char *s)
 {
 	size_t width = 0;
+	unsigned long cp;
 
 	if (!s)
 		return 0;
 
 	while (*s) {
-		/* Only count leading UTF-8 bytes and ASCII bytes */
-		if ((*s & 0xC0) != 0x80) {
-			width++;
-		}
-		s++;
+		cp = utf8_next_codepoint(&s);
+		width += codepoint_width(cp);
 	}
 	return width;
 }

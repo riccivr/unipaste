@@ -181,11 +181,52 @@ LANG_HTML='<pre><code class="lang-rust">fn main() {}</code></pre><pre class="hig
 test_contains "Code: lang-rust" "$LANG_HTML" '```rust' "-m markdown"
 test_contains "Code: highlight-source-python" "$LANG_HTML" '```python' "-m markdown"
 
-# Test 20: TSV Spreadsheet Grid Auto-Detection
+# Test 20: TSV Spreadsheet Grid Auto-Detection & Single-Line Tab Threshold
 RAW_TSV=$(printf "Item\tQty\tPrice\nApple\t5\t\$1.50\nBanana\t12\t\$0.75\n")
 test_contains "TSV: Markdown table auto-conversion" "$RAW_TSV" "| Item   | Qty | Price |" "-m markdown"
 test_contains "TSV: Jira table auto-conversion" "$RAW_TSV" "|| Item || Qty || Price ||" "-m jira"
 test_contains "TSV: Unicode box table" "$RAW_TSV" "┌" "-u"
+
+SINGLE_TAB_LOG="hello	world this is not a table really just a line"
+test_contains "TSV: Single tab string is NOT a table" "$SINGLE_TAB_LOG" "hello world this is not a table" "-m markdown"
+test_not_contains "TSV: Single tab string has no table pipe" "$SINGLE_TAB_LOG" "|" "-m markdown"
+
+# Test 21: Links inside table cells (No document leak)
+TABLE_LINK_HTML='<table><tr><th>Resource</th></tr><tr><td><a href="https://example.com">Documentation</a></td></tr></table>'
+test_contains "Table Link: In Markdown cell" "$TABLE_LINK_HTML" "| [Documentation](https://example.com) |" "-m markdown"
+test_contains "Table Link: In Slack cell" "$TABLE_LINK_HTML" "<https://example.com|Documentation>" "-m slack"
+test_contains "Table Link: In Jira cell" "$TABLE_LINK_HTML" "[Documentation|https://example.com]" "-m jira"
+test_contains "Table Link: In Plain cell" "$TABLE_LINK_HTML" "Documentation (https://example.com)" "-m plain"
+
+# Test 22: Nested Tables (Stack integrity)
+NESTED_TABLE_HTML='<table><tr><th>Outer Col 1</th><th>Outer Col 2</th></tr><tr><td>Alpha</td><td><table><tr><td>Inner A</td><td>Inner B</td></tr></table></td></tr></table>'
+test_contains "Nested Table: Outer table preserved" "$NESTED_TABLE_HTML" "Outer Col 1" "-m markdown"
+test_contains "Nested Table: Inner cell content included" "$NESTED_TABLE_HTML" "Inner A" "-m markdown"
+
+# Test 23: Script and Style with attributes (Exact-match bypass fix)
+SCRIPT_ATTR_HTML='<p>Hello</p><script type="text/javascript">var evil = 1;</script><style media="screen">body { color: red; }</style><p>World</p>'
+test_contains "Script with attr: Script body stripped" "$SCRIPT_ATTR_HTML" "Hello" "-m markdown"
+test_not_contains "Script with attr: Script code absent" "$SCRIPT_ATTR_HTML" "evil" "-m markdown"
+test_not_contains "Style with attr: CSS rules absent" "$SCRIPT_ATTR_HTML" "color: red" "-m markdown"
+
+# Test 24: Images with alt attribute
+IMG_HTML='<p>Check out our logo: <img src="https://example.com/logo.png" alt="Company Logo" /></p>'
+test_contains "Image: Markdown ![alt](src)" "$IMG_HTML" "![Company Logo](https://example.com/logo.png)" "-m markdown"
+test_contains "Image: Plain [Image: alt]" "$IMG_HTML" "[Image: Company Logo]" "-m plain"
+
+# Test 25: Underline formatting (<u> and <ins>)
+U_HTML='<p>Please <u>sign here</u> immediately.</p>'
+test_contains "Underline: Jira markup" "$U_HTML" "+sign here+" "-m jira"
+
+# Test 26: Formatting inside Markdown table cells
+TABLE_FMT_HTML='<table><tr><th>Feature</th><th>Status</th></tr><tr><td><b>Core Engine</b></td><td><i>Active</i> & <s>Deprecated</s></td></tr></table>'
+test_contains "Table Formatting: Bold in cell" "$TABLE_FMT_HTML" "**Core Engine**" "-m markdown"
+test_contains "Table Formatting: Italic and strike in cell" "$TABLE_FMT_HTML" "*Active* & ~~Deprecated~~" "-m markdown"
+
+# Test 27: Unicode East-Asian CJK & Emoji Width in Tables
+CJK_TABLE_HTML='<table><tr><th>Name</th><th>Role</th></tr><tr><td>田中</td><td>開発者</td></tr><tr><td>🚀 Rocket</td><td>Active</td></tr></table>'
+test_contains "CJK Table: East-Asian chars present" "$CJK_TABLE_HTML" "田中" "-u"
+test_contains "CJK Table: Emoji present" "$CJK_TABLE_HTML" "🚀 Rocket" "-u"
 
 echo ""
 echo "======================================"

@@ -35,6 +35,7 @@ Edit `config.mk` to change the install prefix (`/usr/local` by default) or compi
 ---
 
 ### Package Managers
+Maintainer packaging recipes and formulas are provided in the [`packaging/`](packaging/) directory:
 
 #### Homebrew (macOS and Linux)
 ```sh
@@ -60,7 +61,7 @@ choco install unipaste
 ---
 
 ### Pre-built Binaries
-Download pre-compiled binaries for Linux (x86_64), Windows (`unipaste.exe`), and Debian `.deb` packages from the [GitHub Releases](https://github.com/riccivr/unipaste/releases) page.
+Download pre-compiled standalone release binaries for Linux (x86_64), Windows (`unipaste.exe`), and Debian `.deb` packages from the [GitHub Releases](https://github.com/riccivr/unipaste/releases) page.
 
 HTML Sanitizer
 --------------
