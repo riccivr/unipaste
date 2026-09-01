@@ -228,6 +228,32 @@ CJK_TABLE_HTML='<table><tr><th>Name</th><th>Role</th></tr><tr><td>田中</td><td
 test_contains "CJK Table: East-Asian chars present" "$CJK_TABLE_HTML" "田中" "-u"
 test_contains "CJK Table: Emoji present" "$CJK_TABLE_HTML" "🚀 Rocket" "-u"
 
+# Test 28: Nested table preserves surrounding parent-cell text
+NESTED_PREFIX_HTML='<table><tr><td>Before <table><tr><td>Inner</td></tr></table> After</td><td>B</td></tr></table>'
+test_contains "Nested Table: Parent prefix preserved" "$NESTED_PREFIX_HTML" "Before" ""
+test_contains "Nested Table: Parent suffix preserved" "$NESTED_PREFIX_HTML" "After" ""
+test_contains "Nested Table: Sibling cell preserved" "$NESTED_PREFIX_HTML" "B" ""
+test_contains "Nested Table: Compact inner embed" "$NESTED_PREFIX_HTML" "Inner" ""
+test_not_contains "Nested Table: No leaked inner grid into sibling" "$NESTED_PREFIX_HTML" "+-------+" ""
+
+# Test 29: Heading inside a table cell stays in the cell
+HEADING_CELL_HTML='<p>Intro</p><table><tr><td><h2>Title</h2>body</td></tr></table><p>Outro</p>'
+test_contains "Heading in cell: cell text kept" "$HEADING_CELL_HTML" "Titlebody" ""
+test_contains "Heading in cell: surrounding paragraphs kept" "$HEADING_CELL_HTML" "Intro" ""
+test_not_contains "Heading in cell: no leaked heading rule" "$HEADING_CELL_HTML" "====" ""
+
+# Test 30: colspan spans columns instead of leaving an empty neighbor
+COLSPAN_HTML='<table><tr><th colspan="2">Wide Header</th></tr><tr><td>A</td><td>B</td></tr></table>'
+test_contains "Colspan: header text present" "$COLSPAN_HTML" "Wide Header" ""
+test_contains "Colspan: body cells present" "$COLSPAN_HTML" "A" ""
+test_contains "Colspan: second body cell present" "$COLSPAN_HTML" "B" ""
+test_not_contains "Colspan: no empty header neighbor cell" "$COLSPAN_HTML" "| Wide Header |     |" ""
+
+# Test 31: Jira emphasis inside table cells
+JIRA_CELL_FMT='<table><tr><td><b>Core</b> and <i>live</i></td></tr></table>'
+test_contains "Jira table cell: bold" "$JIRA_CELL_FMT" "*Core*" "-m jira"
+test_contains "Jira table cell: italic" "$JIRA_CELL_FMT" "_live_" "-m jira"
+
 echo ""
 echo "======================================"
 echo "Results: $PASSED passed, $FAILED failed"
